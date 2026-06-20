@@ -111,7 +111,10 @@ export class Building implements Entity<CityEnv> {
 		// Windows.
 		this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
 
-		// Crown / roof feature.
+		// Crown / roof feature. `beaconRef` is the layer's parallax pixel-scale (= scale × unit,
+		// the same for every building in this band) so the antenna light is sized by depth/zoom,
+		// not by this building's width — otherwise squat-wide silhouettes get a giant red blob.
+		const beaconRef = sw / spec.width;
 		drawRoof(
 			out,
 			spec.roof,
@@ -123,6 +126,7 @@ export class Building implements Entity<CityEnv> {
 			this.#time,
 			this.#phase,
 			this.depth,
+			beaconRef,
 		);
 	}
 }
@@ -168,6 +172,7 @@ function drawRoof(
 	time: number,
 	phase: number,
 	depth: number,
+	beaconRef: number,
 ): void {
 	const cx = x + w / 2;
 	switch (roof) {
@@ -176,14 +181,17 @@ function drawRoof(
 		case "antenna": {
 			const len = w * (0.5 + scale * 0.9);
 			out.line(cx, topY, cx, topY - len, Math.max(1, w * 0.04), color);
-			// A calm blinking aviation light on nearer layers.
+			// A calm blinking aviation light on nearer layers. Sized from the layer's parallax
+			// scale (not the building's width) so every beacon in the band is the same small
+			// point — wide silhouettes no longer get an oversized red light.
 			if (depth > 0.4) {
 				const on = (time + phase * 1700) % 1700 < 240;
-				if (on) out.glow(cx, topY - len, w * 0.18, ANTENNA_LIGHT, 1);
+				const lightR = Math.max(0.8, beaconRef * 0.007);
+				if (on) out.glow(cx, topY - len, lightR * 4, ANTENNA_LIGHT, 1);
 				out.circle(
 					cx,
 					topY - len,
-					Math.max(0.8, w * 0.045),
+					lightR,
 					on ? ANTENNA_LIGHT : darken(ANTENNA_LIGHT, 0.6),
 				);
 			}

@@ -1193,7 +1193,8 @@ class Building {
         const spec = this.#spec;
         const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks);
         this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
-        drawRoof(out, spec.roof, sx, topY, sw, spec.roofScale, this.#color, this.#time, this.#phase, this.depth);
+        const beaconRef = sw / spec.width;
+        drawRoof(out, spec.roof, sx, topY, sw, spec.roofScale, this.#color, this.#time, this.#phase, this.depth, beaconRef);
     }
 }
 function drawBody(out, x, y, w, h, color, setbacks) {
@@ -1225,7 +1226,7 @@ function drawBody(out, x, y, w, h, color, setbacks) {
         h: segH
     };
 }
-function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth) {
+function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth, beaconRef) {
     const cx = x + w / 2;
     switch(roof){
         case "flat":
@@ -1236,8 +1237,9 @@ function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth) {
                 out.line(cx, topY, cx, topY - len, Math.max(1, w * 0.04), color);
                 if (depth > 0.4) {
                     const on = (time + phase * 1700) % 1700 < 240;
-                    if (on) out.glow(cx, topY - len, w * 0.18, ANTENNA_LIGHT, 1);
-                    out.circle(cx, topY - len, Math.max(0.8, w * 0.045), on ? ANTENNA_LIGHT : darken(ANTENNA_LIGHT, 0.6));
+                    const lightR = Math.max(0.8, beaconRef * 0.007);
+                    if (on) out.glow(cx, topY - len, lightR * 4, ANTENNA_LIGHT, 1);
+                    out.circle(cx, topY - len, lightR, on ? ANTENNA_LIGHT : darken(ANTENNA_LIGHT, 0.6));
                 }
                 return;
             }
