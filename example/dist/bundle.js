@@ -91,8 +91,15 @@ class Engine {
     #frame = (time)=>{
         if (!this.#running) return;
         if (this.#last == null) this.#last = time;
-        const delta = clamp(time - this.#last, 0, this.#maxFrameDelta);
+        const raw = time - this.#last;
         this.#last = time;
+        if (raw > this.#maxFrameDelta) {
+            const { alpha } = this.stepper.advance(0, this.#opts.step);
+            this.#opts.render(alpha);
+            this.#schedule();
+            return;
+        }
+        const delta = clamp(raw, 0, this.#maxFrameDelta);
         const { alpha } = this.stepper.advance(delta, this.#opts.step);
         this.#opts.render(alpha);
         this.#schedule();
@@ -259,7 +266,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 120,
         step: 1,
-        default: 20,
+        default: 120,
         unit: "u/s",
         help: "Scroll speed. 0 holds the city still."
     },
@@ -299,7 +306,7 @@ const CONFIG_SCHEMA = [
         min: -0.25,
         max: 0.25,
         step: 0.01,
-        default: 0.12,
+        default: -0.08,
         help: "Pan the camera up (more sky) or down (more water)."
     },
     {
@@ -326,7 +333,7 @@ const CONFIG_SCHEMA = [
         label: "Seed",
         group: "World",
         type: "seed",
-        default: "arj213f",
+        default: "hey ho lets go",
         help: "Same seed + settings reproduces the exact city."
     },
     {
@@ -348,7 +355,7 @@ const CONFIG_SCHEMA = [
         min: 0.4,
         max: 1.8,
         step: 0.05,
-        default: 0.45,
+        default: 0.5,
         help: "How tightly buildings pack in."
     },
     {
@@ -359,7 +366,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 0.5,
         step: 0.02,
-        default: 0.33,
+        default: 0.1,
         help: "Fraction of the bottom that is calm water (sea/river). 0 = no water."
     },
     {
@@ -403,7 +410,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0,
+        default: 0.3,
         help: "Drift between dense city and open outskirts as you scroll. 0 = uniform city."
     },
     {
@@ -414,7 +421,7 @@ const CONFIG_SCHEMA = [
         min: 1,
         max: 12,
         step: 0.5,
-        default: 5,
+        default: 4.5,
         help: "How long each city/outskirts stretch lasts (world units). Higher = longer."
     },
     {
@@ -422,7 +429,7 @@ const CONFIG_SCHEMA = [
         label: "Palette",
         group: "Mood",
         type: "select",
-        default: "navy",
+        default: "dawn",
         options: PALETTE_NAMES.map((n)=>({
                 value: n,
                 label: PALETTES[n].label
@@ -448,7 +455,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.02,
-        default: 0.42
+        default: 0.76
     },
     {
         key: "colorTemperature",
@@ -458,7 +465,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.02,
-        default: 0.5,
+        default: 0.48,
         help: "Bias the cycle toward warm (0) or cool (1)."
     },
     {
@@ -469,7 +476,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.3,
+        default: 1,
         help: "Darken the frame toward the corners (+ faint grain). 0 = off."
     },
     {
@@ -490,7 +497,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.02,
-        default: 0,
+        default: 0.48,
         help: "How often windows switch. Low stays calm."
     },
     {
@@ -501,7 +508,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.5
+        default: 0.1
     },
     {
         key: "starDensity",
@@ -511,7 +518,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.85
+        default: 1
     },
     {
         key: "cloudChance",
@@ -521,7 +528,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.8
+        default: 0.9
     },
     {
         key: "birdChance",
@@ -531,7 +538,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.8
+        default: 0.95
     },
     {
         key: "flyerChance",
@@ -541,7 +548,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.9,
+        default: 0.95,
         help: "Rare crossers: planes, satellites, shooting stars."
     },
     {
@@ -552,7 +559,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.6,
+        default: 0.1,
         help: "Sparse headlights crossing the waterfront. Needs a shore to drive on."
     },
     {
@@ -563,7 +570,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.3,
+        default: 0,
         help: "Low mist hazing the base of the skyline. 0 = clear."
     },
     {
@@ -574,7 +581,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.3,
+        default: 0,
         help: "Faint sky shimmer (navy & vaporwave palettes only). 0 = off."
     },
     {
@@ -4328,7 +4335,8 @@ function sampleStops(stops, t) {
     return lastStop.color;
 }
 const handle = mountCityscape({
-    writeHash: true
+    writeHash: true,
+    randomizeSeed: false
 });
 const canvasRenderer = handle.renderer;
 const toast = document.createElement("div");
@@ -4383,17 +4391,37 @@ const asciiBtn = document.createElement("button");
 asciiBtn.className = "cs-bar-btn";
 asciiBtn.textContent = "ASCII view";
 asciiBtn.addEventListener("click", ()=>setAscii(!asciiOn));
+const fsBtn = document.createElement("button");
+fsBtn.className = "cs-bar-btn";
+fsBtn.textContent = "Fullscreen";
+fsBtn.addEventListener("click", ()=>setImmersive(true));
 const hint = document.createElement("span");
 hint.className = "cs-hint";
-hint.textContent = "move = parallax · wheel = speed · click = flash windows · keys: a / h";
-bar.append(asciiBtn, hint);
+hint.textContent = "move = parallax · wheel = speed · click = flash · keys: a / h / f";
+bar.append(asciiBtn, fsBtn, hint);
 document.body.append(bar);
+const controls = [
+    panel.el,
+    bar
+];
+let immersive = false;
+function setImmersive(on) {
+    if (on === immersive) return;
+    immersive = on;
+    for (const el of controls)el.style.display = on ? "none" : "";
+    if (on) document.documentElement.requestFullscreen?.().catch(()=>{});
+    else if (document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
+}
+document.addEventListener("fullscreenchange", ()=>{
+    if (!document.fullscreenElement && immersive) setImmersive(false);
+});
 addEventListener("keydown", (e)=>{
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
         return;
     }
     if (e.key === "a") setAscii(!asciiOn);
     else if (e.key === "h") panel.toggle();
+    else if (e.key === "f") setImmersive(!immersive);
 });
 Object.assign(globalThis, {
     handle,
