@@ -76,11 +76,13 @@ export interface CityscapeConfig {
 	spawnDensity: number;
 	waterLevel: number;
 	shoreHeight: number;
+	buildingShading: number;
 	// Mood
 	palette: string;
 	moodCycleSeconds: number;
 	darkness: number;
 	colorTemperature: number;
+	vignette: number;
 	// Lights
 	windowLightChance: number;
 	windowToggleRate: number;
@@ -217,6 +219,18 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		default: 0.025,
 		help: "Lit shore/embankment band between the city and the water.",
 	},
+	{
+		key: "buildingShading",
+		label: "Facade light",
+		group: "World",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.5,
+		help:
+			"Soft top-light on near buildings so silhouettes read as volumes. 0 = flat.",
+	},
 	// ── Mood ───────────────────────────────────────────────────────────
 	{
 		key: "palette",
@@ -258,6 +272,17 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		step: 0.02,
 		default: 0.5,
 		help: "Bias the cycle toward warm (0) or cool (1).",
+	},
+	{
+		key: "vignette",
+		label: "Vignette",
+		group: "Mood",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.3,
+		help: "Darken the frame toward the corners (+ faint grain). 0 = off.",
 	},
 	// ── Lights ─────────────────────────────────────────────────────────
 	{

@@ -12,7 +12,7 @@
  */
 
 import type { Rng } from "../../engine/math/rng.ts";
-import { type Color, darken, rgb, withAlpha } from "../../engine/math/color.ts";
+import { type Color, darken, lighten, rgb, withAlpha } from "../../engine/math/color.ts";
 import { clamp } from "../../engine/math/ease.ts";
 import type { DisplayListBuilder } from "../../engine/render/draw-command.ts";
 import type { DrawContext, Entity, UpdateContext } from "../../engine/scene/entity.ts";
@@ -42,6 +42,8 @@ export class Building implements Entity<CityEnv> {
 	#window: Color = rgb(255, 255, 255);
 	#time = 0;
 	#phase = 0;
+	/** Cached facade top-light strength (0 = flat); resolved from config, gated to near layers. */
+	#shade = 0;
 
 	constructor(depth: number, rng: Rng) {
 		this.depth = depth;
@@ -91,6 +93,8 @@ export class Building implements Entity<CityEnv> {
 		const mood = ctx.env.mood;
 		this.#color = silhouetteColor(mood, this.depth);
 		this.#window = mood.window;
+		// Facade light only earns its draw cost on the near bands; far/hazy ones stay flat.
+		this.#shade = this.depth > 0.78 ? cfg.buildingShading : 0;
 		this.#grid.update(ctx.dt, this.#rng, ctx.env.config);
 	}
 
@@ -105,8 +109,18 @@ export class Building implements Entity<CityEnv> {
 		const out = ctx.out;
 		const spec = this.#spec;
 
-		// Body (stepped for setbacks). Returns the rect to lay windows over.
-		const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks);
+		// Body (stepped for setbacks). Returns the rect to lay windows over. The facade light is
+		// drawn under the windows so lit cells stay crisp on top of it.
+		const win = drawBody(
+			out,
+			sx,
+			topY,
+			sw,
+			bh,
+			this.#color,
+			spec.setbacks,
+			this.#shade,
+		);
 
 		// Windows.
 		this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
@@ -140,9 +154,11 @@ function drawBody(
 	h: number,
 	color: Color,
 	setbacks: number,
+	shade: number,
 ): { x: number; y: number; w: number; h: number } {
 	if (setbacks <= 0) {
 		out.rect(x, y, w, h, color);
+		shadeSegment(out, x, y, w, h, color, shade);
 		return { x, y, w, h };
 	}
 	const segs = setbacks + 1;
@@ -152,13 +168,38 @@ function drawBody(
 	let yBottom = y + h;
 	for (let i = 0; i < segs; i++) {
 		const yTop = yBottom - segH;
-		out.rect(curX, yTop, curW, segH + 0.5, color);
+		const sh = segH + 0.5;
+		out.rect(curX, yTop, curW, sh, color);
+		// Per-segment so the wash tracks the narrowing crown instead of bleeding past it.
+		shadeSegment(out, curX, yTop, curW, sh, color, shade);
 		curX += curW * 0.16;
 		curW *= 0.68;
 		yBottom = yTop;
 	}
 	// Windows fill the full-width bottom segment only (keeps them off the narrowed crown).
 	return { x, y: y + h - segH, w, h: segH };
+}
+
+/**
+ * A faint top-down rim of light washing the upper part of a body segment and fading to nothing —
+ * just enough to give the flat silhouette a sense of volume without a real lighting model. Same
+ * light hue at both stops (only the alpha falls) so the fade never drifts in colour.
+ */
+function shadeSegment(
+	out: DisplayListBuilder,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: Color,
+	shade: number,
+): void {
+	if (shade <= 0) return;
+	const lit = lighten(color, 0.5);
+	out.gradient(x, y, w, h, [
+		{ at: 0, color: withAlpha(lit, shade * 0.4) },
+		{ at: 0.55, color: withAlpha(lit, 0) },
+	], true);
 }
 
 function drawRoof(
@@ -248,6 +289,41 @@ function drawRoof(
 				const tx = x + i * tw;
 				out.polygon([tx, topY, tx + tw, topY, tx + tw, topY - th], color);
 			}
+			return;
+		}
+		case "barrel": {
+			// A low, wide rounded cap: a large disc pushed down so only a shallow arc shows above
+			// the roofline (it never bulges past the walls — its widest point sits at the edge).
+			const r = w * 0.48;
+			const cap = Math.min(r, w * 0.18 * (0.5 + scale));
+			out.circle(cx, topY + r - cap, r, color);
+			return;
+		}
+		case "deco": {
+			// A stepped art-deco crown: stacked, narrowing tiers topped by a finial.
+			const steps = 3;
+			const stepH = w * 0.14 * (0.6 + scale);
+			let stepW = w * 0.62;
+			let yb = topY;
+			for (let i = 0; i < steps; i++) {
+				out.rect(cx - stepW / 2, yb - stepH, stepW, stepH + 0.5, color);
+				yb -= stepH;
+				stepW *= 0.62;
+			}
+			out.line(cx, yb, cx, yb - stepH * 0.9, Math.max(1, w * 0.04), color);
+			return;
+		}
+		case "watertower": {
+			// The classic rooftop tank on splayed legs, with a rounded cap.
+			const tw = Math.max(4, w * 0.26 * (0.7 + scale));
+			const legH = w * 0.1 * (0.6 + scale);
+			const tankH = tw * 0.8;
+			const lw = Math.max(1, w * 0.03);
+			const baseY = topY - legH; // top of the legs / bottom of the tank
+			out.line(cx - tw * 0.3, topY, cx - tw * 0.3, baseY, lw, color);
+			out.line(cx + tw * 0.3, topY, cx + tw * 0.3, baseY, lw, color);
+			out.rect(cx - tw / 2, baseY - tankH, tw, tankH, color);
+			out.circle(cx, baseY - tankH, tw / 2, color);
 			return;
 		}
 	}

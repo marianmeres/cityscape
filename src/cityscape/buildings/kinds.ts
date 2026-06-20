@@ -31,7 +31,10 @@ export type RoofKind =
 	| "dome"
 	| "chimneys"
 	| "sawtooth"
-	| "pitched";
+	| "pitched"
+	| "barrel"
+	| "deco"
+	| "watertower";
 
 /** A renderer-agnostic description of one building's geometry. */
 export interface BuildingSpec {
@@ -75,8 +78,8 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			width,
 			height,
 			roof: rng.weighted(
-				["antenna", "flat", "spire", "tank"] as RoofKind[],
-				[4, 3, 2, 1],
+				["antenna", "flat", "spire", "tank", "deco"] as RoofKind[],
+				[4, 3, 2, 1, 2],
 			),
 			roofScale: rng.float(0.5, 1),
 			cols,
@@ -92,12 +95,10 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			kind: "tower",
 			width,
 			height,
-			roof: rng.weighted(["flat", "tank", "dome", "antenna"] as RoofKind[], [
-				4,
-				2,
-				2,
-				2,
-			]),
+			roof: rng.weighted(
+				["flat", "tank", "dome", "antenna", "barrel"] as RoofKind[],
+				[4, 2, 2, 2, 2],
+			),
 			roofScale: rng.float(0.5, 1),
 			cols,
 			rows,
@@ -112,7 +113,10 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			kind: "midrise",
 			width,
 			height,
-			roof: rng.weighted(["flat", "antenna", "tank"] as RoofKind[], [5, 2, 2]),
+			roof: rng.weighted(
+				["flat", "antenna", "tank", "watertower"] as RoofKind[],
+				[5, 2, 2, 2],
+			),
 			roofScale: rng.float(0.4, 0.8),
 			cols,
 			rows,
@@ -155,7 +159,7 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			kind: "landmark",
 			width,
 			height,
-			roof: rng.weighted(["spire", "dome"] as RoofKind[], [3, 2]),
+			roof: rng.weighted(["spire", "dome", "deco"] as RoofKind[], [3, 2, 2]),
 			roofScale: rng.float(0.7, 1),
 			cols,
 			rows,
