@@ -23,6 +23,7 @@ import { FlyerDirector } from "../sky/flyer.ts";
 import { BirdDirector } from "../sky/bird.ts";
 import { Water } from "../sky/water.ts";
 import { Shore } from "../sky/shore.ts";
+import { GroundFog } from "../sky/fog.ts";
 import { TrafficDirector } from "../sky/traffic.ts";
 import { LayerSpawner } from "./spawner.ts";
 import { BiomeField } from "./biome.ts";
@@ -86,6 +87,11 @@ export function buildSkyline(
 	const water = new Layer<CityEnv>("water", 1);
 	water.add(new Water(rng.fork("water")));
 	world.addLayer(water);
+
+	// ── Ground fog: a low mist hazing the base of the skyline ──────────
+	const fog = new Layer<CityEnv>("fog", 1.05);
+	fog.add(new GroundFog());
+	world.addLayer(fog);
 
 	// ── Shore: the lit embankment, drawn on top so its lamps reflect on the water ──
 	const shore = new Layer<CityEnv>("shore", 1.1);

@@ -95,6 +95,7 @@ export interface CityscapeConfig {
 	birdChance: number;
 	flyerChance: number;
 	trafficChance: number;
+	fog: number;
 	// Audio
 	audioEnabled: boolean;
 	audioVolume: number;
@@ -395,6 +396,17 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		step: 0.05,
 		default: 0.6,
 		help: "Sparse headlights crossing the waterfront. Needs a shore to drive on.",
+	},
+	{
+		key: "fog",
+		label: "Ground fog",
+		group: "Sky",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.3,
+		help: "Low mist hazing the base of the skyline. 0 = clear.",
 	},
 	// ── Audio ──────────────────────────────────────────────────────────
 	{
