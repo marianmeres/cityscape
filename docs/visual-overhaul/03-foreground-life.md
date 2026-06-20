@@ -68,11 +68,17 @@ Claims verified against the codebase at commit 5997d8f. Planning artifact; no co
 - A few static-ish 1–2px figures by the existing shore lamps. **Low value at this scale, mood
   risk** (can read as noise). Recommend deferring or dropping; listed for completeness.
 
-## Open questions / decisions needed
+## Implemented ✅ (`dac88c6`)
 
-- **Anchor** — waterfront road (recommended v1) vs a bridge (more dramatic, later) vs extending the
-  shore promenade itself?
-- **Landlocked stretches** — does the road persist through the countryside biome (a lonely highway
-  with rare headlights — lovely) or only appear at the waterfront? Recommend a road that exists
-  regardless, so traffic has continuity across the biome journey (depends on doc 02).
-- **Pedestrians** — include the tiny figures or drop them? Recommend drop for v1.
+Landed: a [`TrafficDirector`](../../src/cityscape/sky/traffic.ts) of sparse, bounded (≤6)
+single-`progress` screen-space crossers — warm headlights + red taillights — riding the existing
+lit shore embankment, each casting a wavy reflection onto the water (so task 10 is folded in). Knob
+`trafficChance` (default 0.6); present only when a shore exists.
+
+- **Resolved — anchor:** the existing shore embankment _is_ the waterfront road; no separate road
+  geometry was needed. (A bridge remains a later, more dramatic variant.)
+- **Resolved — landlocked stretches:** traffic is gated to scenes with a shore (`shoreHeight > 0`),
+  not the biome. Through the countryside the embankment + its sparse headlights persist, giving the
+  "lonely waterfront" continuity. A truly inland highway is out of scope.
+- **Resolved — pedestrians:** dropped for v1 (low value, mood risk at this zoom).
+- **Not yet eyeballed:** the streak scale/cadence wants a visual review (re-tune at task 16).
