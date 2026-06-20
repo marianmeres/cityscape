@@ -534,6 +534,17 @@ const CONFIG_SCHEMA = [
         help: "Rare crossers: planes, satellites, shooting stars."
     },
     {
+        key: "trafficChance",
+        label: "Traffic",
+        group: "Sky",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.6,
+        help: "Sparse headlights crossing the waterfront. Needs a shore to drive on."
+    },
+    {
         key: "audioEnabled",
         label: "Ambient sound",
         group: "Audio",
@@ -2035,6 +2046,89 @@ function drawLampReflection(out, x, waterY, waterH, r1, time, phase) {
         }
     ], true);
 }
+const HEAD_WARM = rgb(255, 214, 150);
+const HEAD_COOL = rgb(206, 224, 255);
+const TAIL = rgb(255, 72, 60);
+class TrafficDirector {
+    depth = 1.12;
+    bounds = {
+        x: -Infinity,
+        width: Infinity
+    };
+    alive = true;
+    #rng;
+    #vehicles = [];
+    #timer;
+    #time = 0;
+    #water = 0.33;
+    #shore = 0.025;
+    constructor(rng){
+        this.#rng = rng;
+        this.#timer = rng.float(1500, 5000);
+    }
+    update(ctx) {
+        this.#time = ctx.time;
+        this.#water = ctx.env.config.waterLevel;
+        this.#shore = ctx.env.config.shoreHeight;
+        const chance = ctx.env.config.trafficChance;
+        if (this.#vehicles.length > 0) {
+            let w = 0;
+            for (const v of this.#vehicles){
+                v.progress += v.speed * ctx.dt;
+                if (v.progress <= 1) this.#vehicles[w++] = v;
+            }
+            this.#vehicles.length = w;
+        }
+        if (this.#shore <= 0.001 || chance <= 0) return;
+        this.#timer -= ctx.dt * (0.2 + chance);
+        if (this.#timer > 0) return;
+        this.#timer = this.#rng.float(1400, 4200) / (0.3 + chance);
+        if (this.#vehicles.length < 6) this.#vehicles.push(this.#spawn());
+    }
+    #spawn() {
+        return {
+            progress: 0,
+            speed: this.#rng.float(0.00009, 0.0002),
+            dir: this.#rng.bool() ? 1 : -1,
+            yJit: this.#rng.float(-1, 1),
+            size: this.#rng.float(0.85, 1.35),
+            warm: this.#rng.bool(0.72)
+        };
+    }
+    draw(ctx) {
+        if (this.#vehicles.length === 0 || this.#shore <= 0.001) return;
+        const { out, width, height } = ctx;
+        const waterY = (1 - this.#water) * height;
+        const bandH = this.#shore * height;
+        const roadY = waterY - bandH * 0.45;
+        const carH = Math.max(1.2, bandH * 0.4);
+        const waterH = height - waterY;
+        for (const v of this.#vehicles){
+            const sx = (v.dir > 0 ? -0.05 + v.progress * 1.1 : 1.05 - v.progress * 1.1) * width;
+            const y = roadY + v.yJit * bandH * 0.22;
+            const s = carH * v.size;
+            const head = v.warm ? HEAD_WARM : HEAD_COOL;
+            const headX = sx + v.dir * s * 0.7;
+            const tailX = sx - v.dir * s * 0.7;
+            out.glow(headX, y, s * 2.4, withAlpha(head, 0.5), 0.9);
+            out.circle(headX, y, s * 0.5, head);
+            out.circle(tailX, y, s * 0.42, TAIL);
+            if (waterH > 0) {
+                const wob = Math.sin(this.#time * 0.0012 + sx * 0.05) * s * 0.7;
+                out.gradient(headX - s * 0.6 + wob, waterY, s * 1.2, waterH * 0.5, [
+                    {
+                        at: 0,
+                        color: withAlpha(head, 0.22)
+                    },
+                    {
+                        at: 1,
+                        color: withAlpha(head, 0)
+                    }
+                ], true);
+            }
+        }
+    }
+}
 function gridFor(rng, width, height, density = 1) {
     const cols = clamp(Math.round(width * 77 * density + rng.float(-1, 1)), 2, 8);
     const rows = clamp(Math.round(height * 46 * density + rng.float(-1, 1)), 1, 30);
@@ -2711,6 +2805,9 @@ function buildSkyline(world, config, rng) {
     const shore = new Layer("shore", 1.1);
     shore.add(new Shore(rng.fork("shore")));
     world.addLayer(shore);
+    const traffic = new Layer("traffic", 1.12);
+    traffic.add(new TrafficDirector(rng.fork("traffic")));
+    world.addLayer(traffic);
     return {
         spawners
     };
