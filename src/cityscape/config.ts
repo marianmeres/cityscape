@@ -10,7 +10,22 @@
  * @module
  */
 
+import {
+	buildDefaults as buildSchemaDefaults,
+	type ConfigField,
+	normalizeConfig as normalizeBySchema,
+} from "../engine/config/schema.ts";
 import { PALETTE_NAMES, PALETTES } from "./palette.ts";
+
+// The field-descriptor types live in the engine (the schema system is domain-agnostic); re-export
+// them here so existing `@marianmeres/cityscape` consumers keep importing them from the config.
+export type {
+	ConfigField,
+	RangeField,
+	SeedField,
+	SelectField,
+	ToggleField,
+} from "../engine/config/schema.ts";
 
 /** UI grouping for panel layout. */
 export type FieldGroup =
@@ -21,45 +36,6 @@ export type FieldGroup =
 	| "Sky"
 	| "Audio"
 	| "Debug";
-
-interface FieldBase {
-	key: string;
-	label: string;
-	group: FieldGroup;
-	help?: string;
-}
-
-/** A numeric slider. */
-export interface RangeField extends FieldBase {
-	type: "range";
-	min: number;
-	max: number;
-	step: number;
-	default: number;
-	unit?: string;
-}
-
-/** A single-choice dropdown. */
-export interface SelectField extends FieldBase {
-	type: "select";
-	options: { value: string; label: string }[];
-	default: string;
-}
-
-/** A boolean switch. */
-export interface ToggleField extends FieldBase {
-	type: "toggle";
-	default: boolean;
-}
-
-/** A free-text seed (string; empty means "randomise at load"). */
-export interface SeedField extends FieldBase {
-	type: "seed";
-	default: string;
-}
-
-/** Any config field descriptor. */
-export type ConfigField = RangeField | SelectField | ToggleField | SeedField;
 
 /** Fully-resolved configuration. Keys mirror {@link CONFIG_SCHEMA} exactly. */
 export interface CityscapeConfig {
@@ -463,9 +439,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 
 /** Build the default config object from the schema's `default`s. */
 export function buildDefaults(schema: ConfigField[] = CONFIG_SCHEMA): CityscapeConfig {
-	const out: Record<string, unknown> = {};
-	for (const f of schema) out[f.key] = f.default;
-	return out as unknown as CityscapeConfig;
+	return buildSchemaDefaults<CityscapeConfig>(schema);
 }
 
 /** The default configuration (the calm navy night). */
@@ -488,38 +462,5 @@ export const GROUP_ORDER: FieldGroup[] = [
  * Anything missing inherits {@link DEFAULT_CONFIG}.
  */
 export function normalizeConfig(input: unknown): CityscapeConfig {
-	const src = (input && typeof input === "object" ? input : {}) as Record<
-		string,
-		unknown
-	>;
-	const out: Record<string, unknown> = {};
-	for (const f of CONFIG_SCHEMA) {
-		const raw = src[f.key];
-		out[f.key] = normalizeField(f, raw);
-	}
-	return out as unknown as CityscapeConfig;
-}
-
-function normalizeField(f: ConfigField, raw: unknown): unknown {
-	switch (f.type) {
-		case "range": {
-			const n = typeof raw === "number" ? raw : Number(raw);
-			if (!Number.isFinite(n)) return f.default;
-			return Math.min(f.max, Math.max(f.min, n));
-		}
-		case "select": {
-			const s = String(raw);
-			return f.options.some((o) => o.value === s) ? s : f.default;
-		}
-		case "toggle":
-			return typeof raw === "boolean"
-				? raw
-				: raw === "true" || raw === 1
-				? true
-				: raw === undefined
-				? f.default
-				: Boolean(raw);
-		case "seed":
-			return raw == null ? f.default : String(raw);
-	}
+	return normalizeBySchema<CityscapeConfig>(CONFIG_SCHEMA, input);
 }

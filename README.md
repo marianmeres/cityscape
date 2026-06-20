@@ -63,6 +63,7 @@ import { mountCityscape } from "jsr:@marianmeres/cityscape";
 | `@marianmeres/cityscape`                 | high-level API: `mountCityscape`, `createCityscape`, renderers, panel, config |
 | `@marianmeres/cityscape/engine`          | the generic, headless animation engine (reusable on its own)                  |
 | `@marianmeres/cityscape/cityscape`       | the city domain: config, palettes, mood, entities, generation                 |
+| `@marianmeres/cityscape/naturescape`     | a second domain on the same engine: a sunlit day-cycling nature valley        |
 | `@marianmeres/cityscape/render/canvas`   | `CanvasRenderer`                                                              |
 | `@marianmeres/cityscape/render/ascii`    | `AsciiRenderer` (headless, string-producing)                                  |
 | `@marianmeres/cityscape/render/pixelart` | `PixelArtRenderer` (low-res, palette-quantised, dithered)                     |
@@ -72,14 +73,37 @@ import { mountCityscape } from "jsr:@marianmeres/cityscape";
 
 ```sh
 deno task theme:build      # generate the panel's design-tokens CSS (once)
-deno task example:build    # bundle example/main.ts → example/dist/bundle.js
-# then serve the repo over http:// and open example/index.html
+deno task example:build    # bundle example/city/main.ts → example/city/dist/bundle.js
+# then serve the repo over http:// and open example/ (a chooser) — or example/city/ directly
 ```
 
 In the example: **move** the pointer for parallax + vertical pan · **wheel** to scrub speed ·
 **click** to flash a building's windows · press **`a`** to toggle the ASCII view · **`p`** for the
 pixel-art view (**`[`** / **`]`** adjust the pixel size) · **`h`** to hide the panel · the **🔗**
 button copies a permalink that restores the exact look.
+
+### A second world on the same engine — `naturescape`
+
+The headline isn't the skyline; it's the **seam**. To prove the engine, renderers and schema-panel
+are genuinely domain-agnostic, the repo ships a _second_ full domain: an infinite, day-cycling
+**nature valley** — rolling forested hills, distant snow-capped mountains, a reflective lake, cabins,
+drifting clouds, birds and balloons, with seasons (spring↔winter), weather (rain, snow, god-rays, a
+rainbow) and wildlife (deer, fish rises, butterflies). It reuses the _exact_ `engine/`, all three
+renderers, and the control panel — only the content layer (`src/naturescape/`) is new.
+
+```ts
+import { mountNaturescape } from "@marianmeres/cityscape"; // (or build the example below)
+mountNaturescape(); // a calm, sunny, full-page valley
+```
+
+```sh
+deno task example-nature:theme    # generate the panel CSS (once)
+deno task example-nature:build    # bundle example/nature/main.ts → example/nature/dist/bundle.js
+# then serve the repo over http:// and open example/nature/ (or use the chooser at example/)
+```
+
+Both examples carry a button to hop to the other world, and `example/index.html` is a small chooser
+between them.
 
 ## Headless usage (your own loop / renderer)
 

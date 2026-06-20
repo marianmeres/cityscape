@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+		/>
+		<title>@marianmeres/cityscape — infinite nature valley</title>
+		<meta
+			name="description"
+			content="An infinite, procedurally-generated parallax nature-valley animation (day cycle, seasons, weather) on the same engine + swappable renderers as the cityscape."
+		/>
+		<link
+			rel="icon"
+			href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏞️</text></svg>"
+		/>
+
+		<!--
+			Panel styling follows @marianmeres/design-tokens: naturescape.css sets the --app-color-*
+			tokens (light on :root, dark on :root.dark). This page stays in light mode (a bright day),
+			so the panel reads the light tokens. Regenerate with:  deno task example-nature:theme
+		-->
+		<link rel="stylesheet" href="./theme/naturescape.css" />
+
+		<style>
+			:root {
+				color-scheme: light;
+			}
+			html, body {
+				height: 100%;
+			}
+			body {
+				margin: 0;
+				position: relative;
+				min-height: 100vh;
+				overflow: hidden;
+				background: #bfe0f5;
+				font-family: ui-sans-serif, system-ui, sans-serif;
+			}
+
+			/* The ASCII view: a full-screen monospace grid, hidden until toggled. */
+			#ascii {
+				display: none;
+				position: fixed;
+				inset: 0;
+				margin: 0;
+				padding: 0;
+				font-family: ui-monospace, "SF Mono", Menlo, monospace;
+				font-size: 11px;
+				line-height: 12px;
+				letter-spacing: 0.5px;
+				white-space: pre;
+				overflow: hidden;
+				color: #2c4a2f;
+				background: #dcefff;
+				z-index: 5;
+				pointer-events: none;
+			}
+
+			/* Bottom control bar. */
+			.ns-bar {
+				position: fixed;
+				left: 16px;
+				bottom: 16px;
+				z-index: 10;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				font-size: 12px;
+				color: var(--app-color-muted-foreground, #4f6b54);
+			}
+			.ns-bar-btn {
+				font: inherit;
+				padding: 7px 12px;
+				border-radius: 8px;
+				border: 1px solid var(--app-color-border, rgba(60, 110, 70, 0.25));
+				background: var(--app-color-surface, rgba(248, 252, 245, 0.82));
+				color: var(--app-color-foreground, #1f3a24);
+				cursor: pointer;
+				backdrop-filter: blur(10px);
+			}
+			.ns-bar-btn:hover {
+				background: var(--app-color-muted, rgba(60, 110, 70, 0.1));
+			}
+			.ns-hint {
+				opacity: 0.75;
+			}
+
+			/* Permalink toast. */
+			.ns-toast {
+				position: fixed;
+				left: 50%;
+				bottom: 24px;
+				transform: translate(-50%, 12px);
+				z-index: 20;
+				padding: 8px 14px;
+				border-radius: 999px;
+				font-size: 12px;
+				color: var(--app-color-foreground, #1f3a24);
+				background: var(--app-color-surface, rgba(248, 252, 245, 0.92));
+				border: 1px solid var(--app-color-border, rgba(60, 110, 70, 0.25));
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.2s, transform 0.2s;
+			}
+			.ns-toast-show {
+				opacity: 1;
+				transform: translate(-50%, 0);
+			}
+
+			@media (max-width: 560px) {
+				.ns-hint {
+					display: none;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<!--
+			The canvas is created and appended by mountNaturescape(); the panel, ASCII <pre>, and
+			the bar are built by the example script. Build the bundle first:
+			  deno task example-nature:build      (or example-nature:watch)
+		-->
+		<script type="module" src="./dist/bundle.js"></script>
+	</body>
+</html>

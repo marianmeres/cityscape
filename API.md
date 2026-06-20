@@ -247,10 +247,37 @@ palette is a warm and a cool end the mood cycles between.
 
 ---
 
+## Naturescape (subpath `…/naturescape`)
+
+A second content domain on the same engine + renderers — a calm, day-cycling **nature valley**.
+Its API mirrors the cityscape one-to-one, so everything above transfers:
+
+- `mountNaturescape(options?): NatureHandle` — the runtime, twin of `mountCityscape`
+  (`NatureMountOptions`/`NatureHandle` mirror `MountOptions`/`CityscapeHandle`). Click ripples the
+  water instead of flashing a window.
+- `createNaturescape(config?): NatureScene` — the headless scene (same `update`/`collect`/`resize`/
+  `setConfig`/`setSway`/`poke` contract as `CityscapeScene`).
+- `NatureConfig` + `CONFIG_SCHEMA` + `DEFAULT_CONFIG` + `normalizeConfig` — schema-driven, drive the
+  generic `createControlPanel({ config, schema })`. Knob groups: **Camera**, **Land** (`seed`,
+  `parallaxLayers`, `spawnDensity`, `waterLevel`, `bankHeight`, `mountains`, `biomeVariety`,
+  `biomeScale`), **Day** (`palette` = clear-day · golden · misty · alpine, `dayCycleSeconds`,
+  `brightness`, `warmth`, `haze`, `vignette`), **Season** (`season` = spring · summer · autumn ·
+  winter, `seasonCycle`, `seasonCycleSeconds`), **Weather** (`rain`, `snowfall`, `rainbow`,
+  `sunRays`, `wind`), **Wildlife**, **Sky** (`clouds`, `birds`, `flyers`), **Audio**, **Debug**.
+- `PALETTES`/`PALETTE_NAMES`/`getPalette`, `SEASONS`/`SEASON_NAMES`/`getSeason`, `MoodEngine` (the
+  **day** clock), and the entity/generation classes (`Feature`, `MountainRange`, `Lake`, `Rainbow`,
+  `WildlifeDirector`, `ZoneStream`, `LayerSpawner`, `buildLandscape`, …).
+- `NatureAudio` — the WebAudio ambient adapter (birdsong, breeze, water, rustle).
+
+The high-level entry points (`mountNaturescape`, `createNaturescape`, `NatureConfig`, `NatureScene`,
+`NatureAudio`) are also re-exported from the top-level `@marianmeres/cityscape` barrel; the rest
+lives under this subpath to avoid name clashes with the city domain.
+
 ## Engine (subpath `…/engine`)
 
-The generic, headless, reusable toolkit underneath the cityscape: seeded `createRng`, value
+The generic, headless, reusable toolkit underneath both domains: seeded `createRng`, value
 `createNoise1D`, `Color` math (`mix`/`darken`/`lighten`/…), `clamp`/`lerp`/`smoothstep` easing,
 `FixedStepper`, the parallax `Camera` / `Layer` / `World`, the `DrawCommand`/`Renderer` seam, the
-`Engine` loop, and `encodeToHash`/`decodeFromHash`. See the inline JSDoc in `src/engine/` for
-per-export detail.
+generic schema-driven config (`buildDefaults`/`normalizeConfig` + the `ConfigField` types in
+`config/schema.ts`), the `Engine` loop, and `encodeToHash`/`decodeFromHash`. See the inline JSDoc in
+`src/engine/` for per-export detail.

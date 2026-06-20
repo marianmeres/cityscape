@@ -1,8 +1,10 @@
 # @marianmeres/cityscape — Agent Guide
 
-Procedurally-generated parallax night-city-skyline animation. **The architecture is the point**:
-a pure, DOM-free, deterministic simulation core behind a swappable renderer seam (Canvas + ASCII +
-PixelArt).
+Procedurally-generated parallax animation. **The architecture is the point**: a pure, DOM-free,
+deterministic simulation core behind a swappable renderer seam (Canvas + ASCII + PixelArt). To prove
+the seam and the engine are genuinely reusable, **two** content domains ride the same engine +
+renderers + schema-panel: `cityscape/` (a night skyline) and `naturescape/` (a sunlit, day-cycling
+nature valley). They are siblings — neither imports the other; both depend only inward on `engine/`.
 
 > This codebase was authored end-to-end by an AI agent from a high-level brief; it's a study piece.
 > Keep that bar: clean, well-commented, tested, idiomatic.
@@ -12,7 +14,9 @@ PixelArt).
 - **Stack**: Deno · TypeScript · DOM (browser runtime only) · published to JSR + npm.
 - **Test**: `deno task test` (= `deno test -A`) | **Type-check**: `deno task check` (= `deno check src/ tests/`)
 - **Format/lint**: `deno fmt` · `deno lint` (tabs, 90 cols, indent 4)
-- **Example**: `deno task theme:build` then `deno task example:build` → `example/dist/bundle.js`; serve over `http://`.
+- **Example**: `deno task theme:build` then `deno task example:build` → `example/city/dist/bundle.js`; serve over `http://`.
+- **Nature example**: `deno task example-nature:theme` then `deno task example-nature:build` → `example/nature/dist/bundle.js`.
+- **Chooser**: `example/index.html` is a static landing page linking to `example/city/` and `example/nature/`.
 
 ## Project Structure
 
@@ -24,29 +28,35 @@ src/
     time/clock.ts                          FixedStepper (fixed-dt loop)
     scene/{entity,camera,layer,world}.ts   parallax scene graph (generic over an Env)
     render/{draw-command,renderer}.ts      the DrawCommand union + Renderer interface (THE SEAM)
-    loop/engine.ts                         rAF-agnostic loop (scheduler injected)
-    input/input.ts · config/serialize.ts   pure pointer model · config⇄URL-hash
+    config/{schema,serialize}.ts           generic schema-driven config (shared by both domains) · config⇄URL-hash
+    loop/engine.ts · input/input.ts        rAF-agnostic loop (scheduler injected) · pure pointer model
   cityscape/             ⮕ "./cityscape"   the city domain, DOM-FREE
     config.ts            CONFIG_SCHEMA (source of truth) · DEFAULT_CONFIG · normalizeConfig
     palette.ts · mood.ts · events.ts · env.ts · scene.ts (createCityscape)
     buildings/{kinds,building,window-grid}.ts
     sky/{backdrop,aurora,starfield,moon,cloud,bird,flyer,water,shore,fog,traffic}.ts
     generation/{biome,district,spawner,skyline}.ts
+  naturescape/           ⮕ "./naturescape" the nature domain, DOM-FREE (sibling of cityscape)
+    config.ts · palette.ts · season.ts · mood.ts (the DAY clock + season blend) · events.ts · env.ts · scene.ts (createNaturescape)
+    features/{kinds,feature}.ts            trees · pines · cabins · rocks · bushes · hills (the land's "buildings")
+    scenery/{backdrop,sun,mountains,cloud,bird,flyer,lake,meadow}.ts
+    weather/{rain,snow,rays,rainbow}.ts · wildlife.ts (deer · fish · butterflies)
+    generation/{biome,zone,spawner,landscape}.ts
   engine/render/pixel/   pure pixel-art math (Bayer dither · median-cut palette · Oklab LUT), tested
   render/shared/draw2d.ts  per-DrawCommand Canvas2D rasteriser (shared by Canvas + PixelArt)
   render/canvas/  ⮕ "./render/canvas"  · render/ascii/  ⮕ "./render/ascii"  · render/pixelart/  ⮕ "./render/pixelart"
-  runtime/mount.ts   audio/ambient-audio.ts   ui/panel.ts  ⮕ "./ui"   (the only DOM code)
-tests/                 DOM-free unit suite (mirrors src/ modules)
-example/               full-page demo (index.html + main.ts + generated theme CSS)
+  runtime/{mount,mount-nature}.ts   audio/{ambient,nature}-audio.ts   ui/panel.ts  ⮕ "./ui"   (the only DOM code)
+tests/                 DOM-free unit suite (mirrors src/ modules; covers both domains)
+example/               index.html (chooser) + city/ + nature/ — each a full-page demo (index.html + main.ts + theme)
 docs/SPEC.md           design & architecture (read this first)
 ```
 
 ## Critical Conventions
 
-1. **The core is DOM-free.** Nothing under `engine/` or `cityscape/` may touch the DOM, browser
-   globals, a renderer, or `@marianmeres/vanilla`/`design-tokens`. This is a **tested invariant**
-   — see [tests/dom-purity.test.ts](tests/dom-purity.test.ts). DOM lives only in `render/canvas`,
-   `runtime`, `audio`, `ui`.
+1. **The core is DOM-free.** Nothing under `engine/`, `cityscape/` or `naturescape/` may touch the
+   DOM, browser globals, a renderer, or `@marianmeres/vanilla`/`design-tokens`. This is a **tested
+   invariant** — see [tests/dom-purity.test.ts](tests/dom-purity.test.ts). DOM lives only in
+   `render/canvas`, `runtime`, `audio`, `ui`.
 2. **The renderer seam.** Entities emit `DrawCommand`s into a `DisplayList`; a `Renderer` consumes
    it. Never reach for a canvas inside the simulation. New visual primitive → add to the
    `DrawCommand` union and handle it in the shared `render/shared/draw2d.ts` rasteriser (covers
@@ -59,9 +69,13 @@ docs/SPEC.md           design & architecture (read this first)
    caches it; `draw(ctx)` is pure geometry + cached colours (no env, no clock, no DOM).
 5. **Units.** Vertical = fraction of viewport height; **horizontal = viewport-height units**
    (`Camera.unit` = height × zoom) so building aspect ratios are constant at any window size.
-6. **Config is schema-driven.** Add a knob by editing `CONFIG_SCHEMA` + the `CityscapeConfig`
-   interface in [src/cityscape/config.ts](src/cityscape/config.ts); the panel and `DEFAULT_CONFIG`
-   follow automatically. `config.test.ts` enforces schema↔interface parity.
+6. **Config is schema-driven.** The field-descriptor types + `buildDefaults`/`normalizeConfig` are
+   generic and live in [src/engine/config/schema.ts](src/engine/config/schema.ts); each domain
+   supplies its own `CONFIG_SCHEMA` + config interface (e.g. [src/cityscape/config.ts](src/cityscape/config.ts),
+   [src/naturescape/config.ts](src/naturescape/config.ts)). Add a knob by editing that domain's
+   `CONFIG_SCHEMA` + interface; the panel and `DEFAULT_CONFIG` follow automatically. The
+   `*-config.test.ts` suites enforce schema↔interface parity. The control panel
+   (`createControlPanel<C>`) is generic over the config type — pass `{ config, schema }`.
 7. **Live vs structural config.** Most knobs are read live each tick. Only `seed` and
    `parallaxLayers` rebuild the world (see `scene.setConfig`).
 8. **Format.** `deno fmt` (tabs, 90 cols). Public exports need JSDoc + explicit return types (JSR).

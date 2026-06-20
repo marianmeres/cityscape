@@ -8,11 +8,11 @@
  *   deno task example:build      (or example:watch)
  */
 
-import { mountCityscape } from "../src/runtime/mount.ts";
-import { createControlPanel } from "../src/ui/panel.ts";
-import { AsciiRenderer } from "../src/render/ascii/ascii-renderer.ts";
-import { PixelArtRenderer } from "../src/render/pixelart/pixelart-renderer.ts";
-import type { Renderer } from "../src/engine/render/renderer.ts";
+import { mountCityscape } from "../../src/runtime/mount.ts";
+import { createControlPanel } from "../../src/ui/panel.ts";
+import { AsciiRenderer } from "../../src/render/ascii/ascii-renderer.ts";
+import { PixelArtRenderer } from "../../src/render/pixelart/pixelart-renderer.ts";
+import type { Renderer } from "../../src/engine/render/renderer.ts";
 
 // ── Mount the running cityscape (writes config to the URL hash for permalinks) ──
 // `randomizeSeed: true` so a bare load (no permalink hash) shows a different city each time.
@@ -114,11 +114,17 @@ const fsBtn = document.createElement("button");
 fsBtn.className = "cs-bar-btn";
 fsBtn.textContent = "Fullscreen";
 fsBtn.addEventListener("click", () => setImmersive(true));
+// Jump to the sibling nature example (same engine, different world).
+const worldBtn = document.createElement("button");
+worldBtn.className = "cs-bar-btn";
+worldBtn.textContent = "🏞 Nature";
+worldBtn.title = "Switch to the nature valley";
+worldBtn.addEventListener("click", () => (location.href = "../nature/"));
 const hint = document.createElement("span");
 hint.className = "cs-hint";
 hint.textContent =
 	"move = parallax · wheel = speed · click = flash · keys: a / p / [ ] / h / f";
-bar.append(asciiBtn, pixelBtn, fsBtn, hint);
+bar.append(asciiBtn, pixelBtn, fsBtn, worldBtn, hint);
 document.body.append(bar);
 
 // ── Immersive view: hide every control and go fullscreen; Escape (or `f`) restores ──

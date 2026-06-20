@@ -12,21 +12,20 @@
  */
 
 import { observable, reactTo, type Unsubscribe } from "@marianmeres/vanilla";
-import {
-	type CityscapeConfig,
-	CONFIG_SCHEMA,
-	type ConfigField,
-	type FieldGroup,
-	GROUP_ORDER,
-} from "../cityscape/config.ts";
+import { type ConfigField, deriveGroups } from "../engine/config/schema.ts";
+import { type CityscapeConfig, CONFIG_SCHEMA } from "../cityscape/config.ts";
 
-/** Options for {@link createControlPanel}. */
-export interface ControlPanelOptions {
+/**
+ * A config object the panel can reflect — keyed by the schema's field keys. Defaults to
+ * {@link CityscapeConfig}, but the panel is generic: pass any domain's config + schema (the
+ * naturescape example does exactly this) and it renders the matching controls.
+ */
+export interface ControlPanelOptions<C extends object = CityscapeConfig> {
 	/** Current configuration to reflect. */
-	config: CityscapeConfig;
+	config: C;
 	/** Called with a partial patch whenever the user changes a control. */
-	onChange: (patch: Partial<CityscapeConfig>) => void;
-	/** Schema to render (defaults to the full {@link CONFIG_SCHEMA}). */
+	onChange: (patch: Partial<C>) => void;
+	/** Schema to render (defaults to the full city {@link CONFIG_SCHEMA}). */
 	schema?: ConfigField[];
 	/** Panel title. */
 	title?: string;
@@ -36,12 +35,12 @@ export interface ControlPanelOptions {
 	onShare?: () => void;
 }
 
-/** A live control panel. */
-export interface ControlPanel {
+/** A live control panel over a config of type `C`. */
+export interface ControlPanel<C extends object = CityscapeConfig> {
 	/** The panel root element (append it to the page). */
 	readonly el: HTMLElement;
 	/** Reflect an externally-changed config (e.g. wheel-scrub, permalink load) into the controls. */
-	set(config: CityscapeConfig): void;
+	set(config: C): void;
 	/** Collapse/expand the body. Pass `true` to force-collapse, `false` to expand, omit to flip. */
 	toggle(collapse?: boolean): void;
 	/** Remove listeners + DOM. */
@@ -51,7 +50,9 @@ export interface ControlPanel {
 const STYLE_ID = "cityscape-panel-style";
 
 /** Build the floating control panel. */
-export function createControlPanel(opts: ControlPanelOptions): ControlPanel {
+export function createControlPanel<C extends object = CityscapeConfig>(
+	opts: ControlPanelOptions<C>,
+): ControlPanel<C> {
 	ensureStyles();
 	const schema = opts.schema ?? CONFIG_SCHEMA;
 	const unsubs: Unsubscribe[] = [];
@@ -69,7 +70,7 @@ export function createControlPanel(opts: ControlPanelOptions): ControlPanel {
 	const shuffleBtn = button("⟳", "Shuffle seed", () => {
 		const seed = randomSeed();
 		setters.get("seed")?.(seed);
-		opts.onChange({ seed });
+		opts.onChange({ seed } as unknown as Partial<C>);
 	});
 	const shareBtn = opts.onShare
 		? button("🔗", "Copy link", () => opts.onShare!())
@@ -82,8 +83,8 @@ export function createControlPanel(opts: ControlPanelOptions): ControlPanel {
 
 	const body = el("div", "csp-body");
 
-	// Group fields in declared group order.
-	const groups = opts.schema ? deriveGroups(schema) : GROUP_ORDER;
+	// Group fields in first-seen group order (the schema's declaration order).
+	const groups = deriveGroups(schema);
 	for (const group of groups) {
 		const fields = schema.filter((f) => f.group === group);
 		if (fields.length === 0) continue;
@@ -112,9 +113,7 @@ export function createControlPanel(opts: ControlPanelOptions): ControlPanel {
 	return {
 		el: root,
 		set(config) {
-			for (const f of schema) {
-				setters.get(f.key)?.(config[f.key as keyof CityscapeConfig]);
-			}
+			for (const f of schema) setters.get(f.key)?.(config[f.key as keyof C]);
 		},
 		toggle(collapse) {
 			collapsed.set(typeof collapse === "boolean" ? collapse : !collapsed.get());
@@ -130,10 +129,10 @@ export function createControlPanel(opts: ControlPanelOptions): ControlPanel {
  * Field builders
  * -------------------------------------------------------------------------- */
 
-function buildField(
+function buildField<C extends object>(
 	f: ConfigField,
-	config: CityscapeConfig,
-	onChange: (patch: Partial<CityscapeConfig>) => void,
+	config: C,
+	onChange: (patch: Partial<C>) => void,
 	setters: Map<string, (v: unknown) => void>,
 ): HTMLElement {
 	const row = el("label", "csp-field");
@@ -144,7 +143,7 @@ function buildField(
 	const value = el("span", "csp-value");
 	labelRow.append(name, value);
 
-	const current = config[f.key as keyof CityscapeConfig];
+	const current = config[f.key as keyof C];
 	let control: HTMLElement;
 
 	switch (f.type) {
@@ -159,7 +158,7 @@ function buildField(
 			input.addEventListener("input", () => {
 				const v = Number(input.value);
 				value.textContent = fmt(v, f.unit);
-				onChange({ [f.key]: v } as Partial<CityscapeConfig>);
+				onChange({ [f.key]: v } as Partial<C>);
 			});
 			setters.set(f.key, (v) => {
 				input.value = String(v);
@@ -179,7 +178,7 @@ function buildField(
 			sel.value = String(current);
 			sel.addEventListener(
 				"change",
-				() => onChange({ [f.key]: sel.value } as Partial<CityscapeConfig>),
+				() => onChange({ [f.key]: sel.value } as Partial<C>),
 			);
 			setters.set(f.key, (v) => (sel.value = String(v)));
 			control = sel;
@@ -192,7 +191,7 @@ function buildField(
 			input.checked = Boolean(current);
 			input.addEventListener(
 				"change",
-				() => onChange({ [f.key]: input.checked } as Partial<CityscapeConfig>),
+				() => onChange({ [f.key]: input.checked } as Partial<C>),
 			);
 			setters.set(f.key, (v) => (input.checked = Boolean(v)));
 			control = input;
@@ -206,7 +205,7 @@ function buildField(
 			input.spellcheck = false;
 			input.addEventListener(
 				"change",
-				() => onChange({ [f.key]: input.value } as Partial<CityscapeConfig>),
+				() => onChange({ [f.key]: input.value } as Partial<C>),
 			);
 			setters.set(f.key, (v) => (input.value = String(v)));
 			control = input;
@@ -245,12 +244,6 @@ function fmt(v: number, unit?: string): string {
 
 function randomSeed(): string {
 	return Math.random().toString(36).slice(2, 9);
-}
-
-function deriveGroups(schema: ConfigField[]): FieldGroup[] {
-	const seen: FieldGroup[] = [];
-	for (const f of schema) if (!seen.includes(f.group)) seen.push(f.group);
-	return seen;
 }
 
 function ensureStyles(): void {

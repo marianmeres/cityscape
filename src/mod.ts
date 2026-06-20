@@ -7,6 +7,7 @@
  *
  *  - `@marianmeres/cityscape/engine`        — the generic, headless animation engine
  *  - `@marianmeres/cityscape/cityscape`     — the city domain (config, palettes, mood, entities)
+ *  - `@marianmeres/cityscape/naturescape`   — a second domain on the same engine (a nature valley)
  *  - `@marianmeres/cityscape/render/canvas`   — the Canvas2D renderer
  *  - `@marianmeres/cityscape/render/ascii`    — the ASCII renderer (proof of the seam)
  *  - `@marianmeres/cityscape/render/pixelart` — the pixel-art renderer (dithered, palette-quantised)
@@ -62,3 +63,17 @@ export {
 	createControlPanel,
 } from "./ui/panel.ts";
 export { AmbientAudio } from "./audio/ambient-audio.ts";
+
+// Naturescape — a second domain on the same engine + renderers (high-level entry points only; the
+// full surface, which shares many names with the city, is under `@marianmeres/cityscape/naturescape`).
+export {
+	mountNaturescape,
+	type NatureHandle,
+	type NatureMountOptions,
+} from "./runtime/mount-nature.ts";
+export {
+	createNaturescape,
+	type NatureConfig,
+	type NatureScene,
+} from "./naturescape/mod.ts";
+export { NatureAudio } from "./audio/nature-audio.ts";

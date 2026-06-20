@@ -226,4 +226,30 @@ vanilla's convention.
 6. **Tests** — thorough DOM-free suite; `deno test` + `deno check` green.
 7. **Adversarial review** — DOM-purity (no DOM import reaches engine/cityscape), correctness, coverage; fix.
 
+## 9. A second domain: `naturescape` (proving the seam)
+
+The strongest evidence that the engine/renderer seam is real is a **second, unrelated content
+domain built on the same foundation**. `src/naturescape/` is a full sibling of `src/cityscape/`: an
+infinite, day-cycling **nature valley** (rolling forested hills, distant snow-capped mountains, a
+reflective lake, cabins, clouds, birds, balloons; selectable + auto-cycling seasons; rain, snow,
+god-rays and a rainbow; deer, fish rises and butterflies). It reuses, unchanged:
+
+- the entire generic **`engine/`** (math, scene graph, the `DrawCommand`/`Renderer` seam, loop, input);
+- **all three renderers** (Canvas, ASCII, PixelArt) and the shared `draw2d` rasteriser;
+- the **schema-driven control panel** — made generic (`createControlPanel<C>`) so it renders any
+  domain's `CONFIG_SCHEMA` (the field-descriptor types + `buildDefaults`/`normalizeConfig` were
+  lifted into `engine/config/schema.ts`, shared by both domains);
+- the config⇄URL-hash permalink machinery and the runtime/audio patterns.
+
+Only the **content layer** is new, and it maps one-to-one onto the city's: `palette` + `season`
+(two orthogonal colour axes) feed one `mood.ts` **day clock** (the analogue of the city's night
+mood clock — a single phase resolves sky, sun, haze, water and foliage together, and stays light
+all cycle long); `features/` are the land's "buildings" (trees/cabins/rocks/hills); `scenery/` +
+`weather/` are its sky/atmosphere; a `generation/` **zone** FSM + shared biome field sequences
+meadow → grove → forest → foothills → alpine so the landscape "makes sense" exactly as the city's
+district FSM does. The two domains are siblings: neither imports the other; both are DOM-free
+(the purity test covers both) and fully deterministic from `seed`. `mountNaturescape()` is the
+nature counterpart of `mountCityscape()`. See `example/nature/` for the live demo (and
+`example/index.html` for the chooser between the two worlds).
+
 See [PROGRESS.md](./PROGRESS.md) for live status.
