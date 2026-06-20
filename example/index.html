@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" class="dark">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<title>@marianmeres/cityscape — infinite night skyline</title>
+		<meta
+			name="description"
+			content="An infinite, procedurally-generated parallax night-city-skyline animation with a swappable renderer."
+		/>
+		<link
+			rel="icon"
+			href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌃</text></svg>"
+		/>
+
+		<!--
+			Panel styling follows @marianmeres/design-tokens: cityscape.css sets the --app-color-*
+			tokens (light on :root, dark on :root.dark; this page opts into dark). The control
+			panel reads those tokens (with dark fallbacks, so it also works without this sheet).
+			Regenerate with:  deno task theme:build
+		-->
+		<link rel="stylesheet" href="./theme/cityscape.css" />
+
+		<style>
+			:root { color-scheme: dark; }
+			html, body { height: 100%; }
+			body {
+				margin: 0;
+				position: relative;
+				min-height: 100vh;
+				overflow: hidden;
+				background: #04060d;
+				font-family: ui-sans-serif, system-ui, sans-serif;
+			}
+
+			/* The ASCII view: a full-screen monospace grid, hidden until toggled. */
+			#ascii {
+				display: none;
+				position: fixed;
+				inset: 0;
+				margin: 0;
+				padding: 0;
+				font-family: ui-monospace, "SF Mono", Menlo, monospace;
+				font-size: 11px;
+				line-height: 12px;
+				letter-spacing: 0.5px;
+				white-space: pre;
+				overflow: hidden;
+				color: #bcd2ff;
+				background: #04060d;
+				z-index: 5;
+				pointer-events: none;
+			}
+
+			/* Bottom control bar. */
+			.cs-bar {
+				position: fixed;
+				left: 16px;
+				bottom: 16px;
+				z-index: 10;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				font-size: 12px;
+				color: var(--app-color-muted-foreground, #8a96c0);
+			}
+			.cs-bar-btn {
+				font: inherit;
+				padding: 7px 12px;
+				border-radius: 8px;
+				border: 1px solid var(--app-color-border, rgba(120, 140, 200, 0.22));
+				background: var(--app-color-surface, rgba(14, 20, 38, 0.82));
+				color: var(--app-color-foreground, #dbe4ff);
+				cursor: pointer;
+				backdrop-filter: blur(10px);
+			}
+			.cs-bar-btn:hover { background: var(--app-color-muted, rgba(255, 255, 255, 0.08)); }
+			.cs-hint { opacity: 0.7; }
+
+			/* Permalink toast. */
+			.cs-toast {
+				position: fixed;
+				left: 50%;
+				bottom: 24px;
+				transform: translate(-50%, 12px);
+				z-index: 20;
+				padding: 8px 14px;
+				border-radius: 999px;
+				font-size: 12px;
+				color: var(--app-color-foreground, #dbe4ff);
+				background: var(--app-color-surface, rgba(14, 20, 38, 0.92));
+				border: 1px solid var(--app-color-border, rgba(120, 140, 200, 0.22));
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.2s, transform 0.2s;
+			}
+			.cs-toast-show { opacity: 1; transform: translate(-50%, 0); }
+
+			@media (max-width: 560px) {
+				.cs-hint { display: none; }
+			}
+		</style>
+	</head>
+	<body>
+		<!--
+			The canvas is created and appended by mountCityscape(); the panel, ASCII <pre>, and
+			the bar are built by the example script. Build the bundle first:
+			  deno task example:build      (or example:watch)
+		-->
+		<script type="module" src="./dist/bundle.js"></script>
+	</body>
+</html>

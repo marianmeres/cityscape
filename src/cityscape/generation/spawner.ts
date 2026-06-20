@@ -1,0 +1,188 @@
+/**
+ * The layer spawner — what makes the world infinite at bounded cost.
+ *
+ * Each building layer has one spawner that, every tick, fills the leading edge of the viewport
+ * with freshly-generated buildings and recycles those that have scrolled well past the trailing
+ * edge back into an object pool. Generation and recycle thresholds use hysteresis (`GEN < REC`)
+ * so nothing churns at the boundary, and two district streams (one per side) let the same
+ * spawner work in either scroll direction. Pure: it reads a {@link Camera} and an {@link Rng},
+ * touches no DOM.
+ *
+ * @module
+ */
+
+import type { Rng } from "../../engine/math/rng.ts";
+import type { Camera } from "../../engine/scene/camera.ts";
+import type { Layer } from "../../engine/scene/layer.ts";
+import type { CityEnv } from "../env.ts";
+import { Building } from "../buildings/building.ts";
+import { type BuildingKind, generateBuilding } from "../buildings/kinds.ts";
+import { DistrictStream } from "./district.ts";
+
+/** Per-layer placement parameters. */
+export interface SpawnerOptions {
+	depth: number;
+	/** Viewport fraction this layer's feet sit *above* the waterline (distant-shore stagger). */
+	shoreOffset: number;
+	/** Size multiplier; far layers are smaller. */
+	scale: number;
+	/** Archetypes to keep out of this layer (e.g. no skyscrapers up close), remapped if generated. */
+	excludeKinds?: Iterable<BuildingKind>;
+}
+
+/** Where an excluded archetype is downgraded to (front layers get shorter buildings). */
+const SUBSTITUTE: Record<BuildingKind, BuildingKind> = {
+	skyscraper: "tower",
+	landmark: "tower",
+	tower: "midrise",
+	midrise: "house",
+	house: "house",
+	factory: "midrise",
+};
+
+const GEN_MARGIN = 340;
+const REC_MARGIN = 680;
+const LOOP_GUARD = 400;
+
+/** Fills and recycles one building {@link Layer}. */
+export class LayerSpawner {
+	readonly layer: Layer<CityEnv>;
+	readonly depth: number;
+
+	#shoreOffset: number;
+	#scale: number;
+	#rng: Rng;
+	#streamR: DistrictStream;
+	#streamL: DistrictStream;
+	#pool: Building[] = [];
+	#right = 0; // local-x right edge of the rightmost building
+	#left = 0; // local-x left edge of the leftmost building
+	#init = false;
+	#exclude: Set<BuildingKind>;
+
+	constructor(layer: Layer<CityEnv>, rng: Rng, opts: SpawnerOptions) {
+		this.layer = layer;
+		this.depth = opts.depth;
+		this.#shoreOffset = opts.shoreOffset;
+		this.#scale = opts.scale;
+		this.#rng = rng;
+		this.#exclude = new Set(opts.excludeKinds ?? []);
+		this.#streamR = new DistrictStream(rng.fork("right"));
+		this.#streamL = new DistrictStream(rng.fork("left"));
+	}
+
+	/** Remap an archetype that is barred from this layer to a shorter substitute. */
+	#allow(kind: BuildingKind): BuildingKind {
+		let k = kind;
+		// Walk down the substitution chain until we land on a permitted (or terminal) kind.
+		for (let i = 0; i < 6 && this.#exclude.has(k); i++) {
+			const next = SUBSTITUTE[k];
+			if (next === k) break;
+			k = next;
+		}
+		return k;
+	}
+
+	/** Top up the leading edges and recycle the trailing edge for the current camera. */
+	sync(camera: Camera, width: number, env: CityEnv): void {
+		if (!this.#init) {
+			this.#left = this.#right = camera.viewLeft(this.depth);
+			this.#init = true;
+		}
+		const litChance = env.config.windowLightChance;
+
+		let guard = 0;
+		while (
+			camera.project(this.#right, this.depth) < width + GEN_MARGIN &&
+			guard++ < LOOP_GUARD
+		) {
+			this.#placeRight(litChance);
+		}
+		guard = 0;
+		while (
+			camera.project(this.#left, this.depth) > -GEN_MARGIN &&
+			guard++ < LOOP_GUARD
+		) {
+			this.#placeLeft(litChance);
+		}
+		this.#recycle(camera, width);
+	}
+
+	/** Number of pooled (idle) buildings — for tests / debugging. */
+	get pooled(): number {
+		return this.#pool.length;
+	}
+
+	#obtain(): Building {
+		return this.#pool.pop() ??
+			new Building(this.depth, this.#rng.fork(this.layer.entities.length + 1));
+	}
+
+	#placeRight(litChance: number): void {
+		const slot = this.#streamR.next();
+		const gap = slot.gap * this.#scale;
+		if (slot.kind === null) {
+			this.#right += gap;
+			return;
+		}
+		const spec = generateBuilding(this.#allow(slot.kind), this.#rng);
+		const leftEdge = this.#right + gap;
+		const b = this.#obtain();
+		b.reset(spec, leftEdge, this.#shoreOffset, this.#scale, litChance);
+		this.layer.add(b);
+		this.#right = leftEdge + b.bounds.width;
+	}
+
+	#placeLeft(litChance: number): void {
+		const slot = this.#streamL.next();
+		const gap = slot.gap * this.#scale;
+		if (slot.kind === null) {
+			this.#left -= gap;
+			return;
+		}
+		const spec = generateBuilding(this.#allow(slot.kind), this.#rng);
+		const b = this.#obtain();
+		const width = spec.width * this.#scale;
+		const leftEdge = this.#left - gap - width;
+		b.reset(spec, leftEdge, this.#shoreOffset, this.#scale, litChance);
+		this.layer.add(b);
+		this.#left = leftEdge;
+	}
+
+	#recycle(camera: Camera, width: number): void {
+		const list = this.layer.entities;
+		let w = 0;
+		let removed = false;
+		// Order-preserving compaction (keeps same-layer overlap draw order stable).
+		for (let i = 0; i < list.length; i++) {
+			const b = list[i];
+			const l = camera.project(b.bounds.x, this.depth);
+			const r = camera.project(b.bounds.x + b.bounds.width, this.depth);
+			if (r < -REC_MARGIN || l > width + REC_MARGIN) {
+				if (b instanceof Building) this.#pool.push(b);
+				removed = true;
+			} else {
+				list[w++] = b;
+			}
+		}
+		list.length = w;
+		if (removed) this.#recomputeEdges(camera);
+	}
+
+	#recomputeEdges(camera: Camera): void {
+		const list = this.layer.entities;
+		if (list.length === 0) {
+			this.#left = this.#right = camera.viewLeft(this.depth);
+			return;
+		}
+		let lo = Infinity;
+		let hi = -Infinity;
+		for (const b of list) {
+			if (b.bounds.x < lo) lo = b.bounds.x;
+			const right = b.bounds.x + b.bounds.width;
+			if (right > hi) hi = right;
+		}
+		this.#left = lo;
+		this.#right = hi;
+	}
+}

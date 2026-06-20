@@ -1,0 +1,266 @@
+/**
+ * The {@link Building} entity — a procedurally-shaped silhouette with lit windows, a crown, and
+ * (for factories) drifting smoke.
+ *
+ * It is poolable: `reset()` reconfigures an existing instance for a new spec so the infinite
+ * scroll recycles a bounded set of objects rather than churning the GC. `update()` resolves its
+ * colour from the {@link Mood} and ticks its windows; `draw()` is pure geometry against the
+ * camera. Time-based flourishes (a blinking antenna light, rising smoke) are *stateless*
+ * functions of the simulated clock, so they cost no per-particle bookkeeping.
+ *
+ * @module
+ */
+
+import type { Rng } from "../../engine/math/rng.ts";
+import { type Color, darken, rgb, withAlpha } from "../../engine/math/color.ts";
+import { clamp } from "../../engine/math/ease.ts";
+import type { DisplayListBuilder } from "../../engine/render/draw-command.ts";
+import type { DrawContext, Entity, UpdateContext } from "../../engine/scene/entity.ts";
+import { silhouetteColor } from "../mood.ts";
+import type { CityEnv } from "../env.ts";
+import type { BuildingSpec, RoofKind } from "./kinds.ts";
+import { WindowGrid } from "./window-grid.ts";
+
+const ANTENNA_LIGHT = rgb(255, 70, 64);
+
+/** One building in a parallax layer. Implements the engine's {@link Entity} over {@link CityEnv}. */
+export class Building implements Entity<CityEnv> {
+	depth: number;
+	readonly bounds = { x: 0, width: 0 };
+	alive = true;
+
+	#spec!: BuildingSpec;
+	#localX = 0;
+	#baseline = 0.95;
+	/** How far (viewport fraction) this layer's feet sit above the waterline — distant-shore stagger. */
+	#shoreOffset = 0;
+	#width = 0;
+	#heightFrac = 0;
+	#rng: Rng;
+	#grid = new WindowGrid(0, 0);
+	#color: Color = rgb(0, 0, 0);
+	#window: Color = rgb(255, 255, 255);
+	#time = 0;
+	#phase = 0;
+
+	constructor(depth: number, rng: Rng) {
+		this.depth = depth;
+		this.#rng = rng;
+	}
+
+	/** This building's archetype (after any per-layer substitution). */
+	get kind(): BuildingSpec["kind"] {
+		return this.#spec.kind;
+	}
+
+	/** (Re)configure this instance for a spec at a local-x — the pooling entry point. */
+	reset(
+		spec: BuildingSpec,
+		localX: number,
+		shoreOffset: number,
+		scale: number,
+		litChance: number,
+	): void {
+		this.#spec = spec;
+		this.#localX = localX;
+		this.#shoreOffset = shoreOffset;
+		this.#width = spec.width * scale;
+		this.#heightFrac = clamp(spec.height * scale, 0.02, 0.96);
+		this.bounds.x = localX;
+		this.bounds.width = this.#width;
+		this.alive = true;
+		this.#phase = this.#rng.next();
+		this.#grid = new WindowGrid(spec.cols, spec.rows);
+		this.#grid.seed(this.#rng, litChance);
+	}
+
+	/** Light interaction: pop most of this building's windows on (used by `scene.poke`). */
+	flash(): void {
+		this.#grid.seed(this.#rng, 0.85);
+	}
+
+	update(ctx: UpdateContext<CityEnv>): void {
+		this.#time = ctx.time;
+		// Feet sit on top of the shore band (above the waterline); far layers a touch higher.
+		const cfg = ctx.env.config;
+		this.#baseline = clamp(
+			(1 - cfg.waterLevel - cfg.shoreHeight) - this.#shoreOffset,
+			0.1,
+			1,
+		);
+		const mood = ctx.env.mood;
+		this.#color = silhouetteColor(mood, this.depth);
+		this.#window = mood.window;
+		this.#grid.update(ctx.dt, this.#rng, ctx.env.config);
+	}
+
+	draw(ctx: DrawContext): void {
+		const sx = ctx.camera.project(this.#localX, this.depth);
+		const sw = this.#width * ctx.camera.unit; // world-unit width → pixels
+		if (sx + sw < -4 || sx > ctx.width + 4) return; // offscreen this frame
+
+		const groundY = ctx.height * this.#baseline;
+		const bh = this.#heightFrac * ctx.camera.unit; // height shares the world scale (zoom + aspect)
+		const topY = groundY - bh;
+		const out = ctx.out;
+		const spec = this.#spec;
+
+		// Body (stepped for setbacks). Returns the rect to lay windows over.
+		const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks);
+
+		// Windows.
+		this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
+
+		// Crown / roof feature.
+		drawRoof(
+			out,
+			spec.roof,
+			sx,
+			topY,
+			sw,
+			spec.roofScale,
+			this.#color,
+			this.#time,
+			this.#phase,
+			this.depth,
+		);
+	}
+}
+
+/** Draw the silhouette body; returns the rect windows should fill. */
+function drawBody(
+	out: DisplayListBuilder,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: Color,
+	setbacks: number,
+): { x: number; y: number; w: number; h: number } {
+	if (setbacks <= 0) {
+		out.rect(x, y, w, h, color);
+		return { x, y, w, h };
+	}
+	const segs = setbacks + 1;
+	const segH = h / segs;
+	let curX = x;
+	let curW = w;
+	let yBottom = y + h;
+	for (let i = 0; i < segs; i++) {
+		const yTop = yBottom - segH;
+		out.rect(curX, yTop, curW, segH + 0.5, color);
+		curX += curW * 0.16;
+		curW *= 0.68;
+		yBottom = yTop;
+	}
+	// Windows fill the full-width bottom segment only (keeps them off the narrowed crown).
+	return { x, y: y + h - segH, w, h: segH };
+}
+
+function drawRoof(
+	out: DisplayListBuilder,
+	roof: RoofKind,
+	x: number,
+	topY: number,
+	w: number,
+	scale: number,
+	color: Color,
+	time: number,
+	phase: number,
+	depth: number,
+): void {
+	const cx = x + w / 2;
+	switch (roof) {
+		case "flat":
+			return;
+		case "antenna": {
+			const len = w * (0.5 + scale * 0.9);
+			out.line(cx, topY, cx, topY - len, Math.max(1, w * 0.04), color);
+			// A calm blinking aviation light on nearer layers.
+			if (depth > 0.4) {
+				const on = (time + phase * 1700) % 1700 < 240;
+				if (on) out.glow(cx, topY - len, w * 0.18, ANTENNA_LIGHT, 1);
+				out.circle(
+					cx,
+					topY - len,
+					Math.max(0.8, w * 0.045),
+					on ? ANTENNA_LIGHT : darken(ANTENNA_LIGHT, 0.6),
+				);
+			}
+			return;
+		}
+		case "tank": {
+			const tw = w * 0.34 * scale + w * 0.18;
+			const th = w * 0.22 * scale + 3;
+			out.rect(cx - tw / 2, topY - th, tw, th, color);
+			out.line(
+				cx + tw * 0.1,
+				topY - th,
+				cx + tw * 0.1,
+				topY - th - th * 0.7,
+				Math.max(1, w * 0.03),
+				color,
+			);
+			return;
+		}
+		case "spire": {
+			const sh = w * (0.6 + scale * 1.1);
+			const sw = Math.max(2, w * 0.16);
+			out.polygon([cx - sw / 2, topY, cx + sw / 2, topY, cx, topY - sh], color);
+			return;
+		}
+		case "dome": {
+			const r = w * 0.32;
+			out.circle(cx, topY, r, color);
+			out.rect(x + w * 0.18, topY, w * 0.64, r, color); // hide the lower half
+			return;
+		}
+		case "pitched": {
+			const ph = w * 0.28 * (0.6 + scale);
+			out.polygon([x, topY, x + w, topY, cx, topY - ph], color);
+			return;
+		}
+		case "chimneys": {
+			const count = 2;
+			for (let i = 0; i < count; i++) {
+				const ratio = 0.62 + i * 0.2;
+				const chx = x + w * ratio;
+				const chW = Math.max(2, w * 0.06);
+				const chH = w * (0.3 + scale * 0.35);
+				out.rect(chx, topY - chH, chW, chH, color);
+				drawSmoke(out, chx + chW / 2, topY - chH, w, time, phase + i * 0.41);
+			}
+			return;
+		}
+		case "sawtooth": {
+			const teeth = Math.max(3, Math.round(w / 26));
+			const tw = w / teeth;
+			const th = w * 0.08 * (0.6 + scale);
+			for (let i = 0; i < teeth; i++) {
+				const tx = x + i * tw;
+				out.polygon([tx, topY, tx + tw, topY, tx + tw, topY - th], color);
+			}
+			return;
+		}
+	}
+}
+
+/** Stateless drifting smoke: three puffs rising on a slow loop derived from the clock. */
+function drawSmoke(
+	out: DisplayListBuilder,
+	x: number,
+	y: number,
+	w: number,
+	time: number,
+	phase: number,
+): void {
+	const puff = rgb(46, 52, 68); // muted dark grey so it stays calm against the night
+	for (let k = 0; k < 3; k++) {
+		const t = ((time * 0.00006 + phase + k * 0.34) % 1 + 1) % 1;
+		const py = y - t * w * 0.9;
+		const px = x + Math.sin((t + phase) * 6.283) * w * 0.12;
+		const r = w * (0.08 + t * 0.16);
+		const a = (1 - t) * 0.2;
+		out.circle(px, py, r, withAlpha(puff, a));
+	}
+}
