@@ -15,7 +15,7 @@ import type { Renderer } from "../src/engine/render/renderer.ts";
 
 // ── Mount the running cityscape (writes config to the URL hash for permalinks) ──
 // `randomizeSeed: false` so a bare load shows the curated default scene (seed included).
-const handle = mountCityscape({ writeHash: true, randomizeSeed: false });
+const handle = mountCityscape({ writeHash: true, randomizeSeed: true });
 const canvasRenderer = handle.renderer;
 
 // ── Toast helper ────────────────────────────────────────────────────────────
@@ -27,7 +27,10 @@ function flash(msg: string): void {
 	toast.textContent = msg;
 	toast.classList.add("cs-toast-show");
 	clearTimeout(toastTimer);
-	toastTimer = setTimeout(() => toast.classList.remove("cs-toast-show"), 1400);
+	toastTimer = setTimeout(
+		() => toast.classList.remove("cs-toast-show"),
+		1400,
+	);
 }
 
 // ── Schema-driven control panel ───────────────────────────────────────────────
@@ -82,7 +85,8 @@ fsBtn.textContent = "Fullscreen";
 fsBtn.addEventListener("click", () => setImmersive(true));
 const hint = document.createElement("span");
 hint.className = "cs-hint";
-hint.textContent = "move = parallax · wheel = speed · click = flash · keys: a / h / f";
+hint.textContent =
+	"move = parallax · wheel = speed · click = flash · keys: a / h / f";
 bar.append(asciiBtn, fsBtn, hint);
 document.body.append(bar);
 
@@ -94,7 +98,8 @@ function setImmersive(on: boolean): void {
 	immersive = on;
 	for (const el of controls) el.style.display = on ? "none" : "";
 	if (on) document.documentElement.requestFullscreen?.().catch(() => {});
-	else if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+	else if (document.fullscreenElement)
+		document.exitFullscreen?.().catch(() => {});
 }
 // Leaving browser fullscreen (Escape, the window chrome, …) restores the controls.
 document.addEventListener("fullscreenchange", () => {
@@ -103,7 +108,10 @@ document.addEventListener("fullscreenchange", () => {
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 addEventListener("keydown", (e) => {
-	if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
+	if (
+		e.target instanceof HTMLInputElement ||
+		e.target instanceof HTMLSelectElement
+	) {
 		return;
 	}
 	if (e.key === "a") setAscii(!asciiOn);
