@@ -18,6 +18,7 @@ import type { CityEnv } from "../env.ts";
 import { Building } from "../buildings/building.ts";
 import { type BuildingKind, generateBuilding } from "../buildings/kinds.ts";
 import { DistrictStream } from "./district.ts";
+import type { BiomeField } from "./biome.ts";
 
 /** Per-layer placement parameters. */
 export interface SpawnerOptions {
@@ -28,6 +29,12 @@ export interface SpawnerOptions {
 	scale: number;
 	/** Archetypes to keep out of this layer (e.g. no skyscrapers up close), remapped if generated. */
 	excludeKinds?: Iterable<BuildingKind>;
+	/**
+	 * Shared macro-zoning field. When present *and* `biomeVariety > 0`, district transitions are
+	 * biased toward the local urbanism so the skyline drifts city↔country. Omitted (or variety 0) =
+	 * the uniform city. Every layer shares one field so the bands agree on the journey.
+	 */
+	biomeField?: BiomeField;
 }
 
 /** Where an excluded archetype is downgraded to (front layers get shorter buildings). */
@@ -38,6 +45,12 @@ const SUBSTITUTE: Record<BuildingKind, BuildingKind> = {
 	midrise: "house",
 	house: "house",
 	factory: "midrise",
+	// Rural kinds are already short — they stay as-is on every band.
+	tree: "tree",
+	barn: "barn",
+	silo: "silo",
+	// Hills belong on the far bands; if one is generated for a near band it becomes a tree.
+	hill: "tree",
 };
 
 const GEN_MARGIN = 340;
@@ -59,6 +72,12 @@ export class LayerSpawner {
 	#left = 0; // local-x left edge of the leftmost building
 	#init = false;
 	#exclude: Set<BuildingKind>;
+	#biomeField?: BiomeField;
+	// Per-tick biome context (refreshed in `sync`): the shift that maps this layer's local-x into
+	// the shared near-plane frame so every band samples the same journey, plus the live knobs.
+	#biomeShift = 0;
+	#biomeScale = 5;
+	#biomeVariety = 0;
 
 	constructor(layer: Layer<CityEnv>, rng: Rng, opts: SpawnerOptions) {
 		this.layer = layer;
@@ -67,6 +86,7 @@ export class LayerSpawner {
 		this.#scale = opts.scale;
 		this.#rng = rng;
 		this.#exclude = new Set(opts.excludeKinds ?? []);
+		this.#biomeField = opts.biomeField;
 		this.#streamR = new DistrictStream(rng.fork("right"));
 		this.#streamL = new DistrictStream(rng.fork("left"));
 	}
@@ -90,6 +110,12 @@ export class LayerSpawner {
 			this.#init = true;
 		}
 		const litChance = env.config.windowLightChance;
+		// Refresh the biome context for this tick. The shift converts a layer-local x to the shared
+		// near-plane coordinate (`lx + scroll·(1−parallax)`), so a building entering at the leading
+		// edge samples the same urbanism on every band — the whole frame agrees where it is.
+		this.#biomeShift = camera.scroll * (1 - camera.parallaxAt(this.depth));
+		this.#biomeScale = env.config.biomeScale;
+		this.#biomeVariety = env.config.biomeVariety;
 
 		let guard = 0;
 		while (
@@ -118,8 +144,24 @@ export class LayerSpawner {
 			new Building(this.depth, this.#rng.fork(this.layer.entities.length + 1));
 	}
 
+	/**
+	 * Pull the next slot from a stream, sampling the shared biome at the placement edge when the
+	 * journey is active. With no field or `variety = 0` this is exactly `stream.next()` — the
+	 * uniform city — so the biome scaffold ships dormant and is opt-in via the knob.
+	 */
+	#nextSlot(stream: DistrictStream, edge: number) {
+		if (this.#biomeField && this.#biomeVariety > 0) {
+			const urbanism = this.#biomeField.urbanismAt(
+				edge + this.#biomeShift,
+				this.#biomeScale,
+			);
+			return stream.next(urbanism, this.#biomeVariety);
+		}
+		return stream.next();
+	}
+
 	#placeRight(litChance: number): void {
-		const slot = this.#streamR.next();
+		const slot = this.#nextSlot(this.#streamR, this.#right);
 		const gap = slot.gap * this.#scale;
 		if (slot.kind === null) {
 			this.#right += gap;
@@ -134,7 +176,7 @@ export class LayerSpawner {
 	}
 
 	#placeLeft(litChance: number): void {
-		const slot = this.#streamL.next();
+		const slot = this.#nextSlot(this.#streamL, this.#left);
 		const gap = slot.gap * this.#scale;
 		if (slot.kind === null) {
 			this.#left -= gap;

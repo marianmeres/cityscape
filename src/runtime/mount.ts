@@ -105,7 +105,8 @@ export function mountCityscape(opts: MountOptions = {}): CityscapeHandle {
 	}
 
 	const scene = createCityscape(initial);
-	const canvasRenderer: Renderer = new CanvasRenderer(canvas);
+	const canvasRenderer = new CanvasRenderer(canvas);
+	canvasRenderer.setPost({ vignette: scene.config.vignette });
 	let renderer: Renderer = canvasRenderer;
 	const audio = new AmbientAudio(scene.events);
 	audio.setVolume(scene.config.audioVolume);
@@ -194,6 +195,9 @@ export function mountCityscape(opts: MountOptions = {}): CityscapeHandle {
 	const applyRuntime = (patch: Partial<CityscapeConfig>): void => {
 		if ("audioEnabled" in patch) audio.setEnabled(!!patch.audioEnabled);
 		if ("audioVolume" in patch) audio.setVolume(scene.config.audioVolume);
+		if ("vignette" in patch) {
+			canvasRenderer.setPost({ vignette: scene.config.vignette });
+		}
 		if (opts.writeHash) writeHash();
 	};
 	const update = (patch: Partial<CityscapeConfig>): void => {
@@ -294,7 +298,7 @@ export function mountCityscape(opts: MountOptions = {}): CityscapeHandle {
 			// Dispose the renderer this handle created. Renderers passed to setRenderer are
 			// caller-owned (swapping is deactivation, not destruction — the example toggles
 			// Canvas⇄ASCII and reuses both), so we never dispose those on swap.
-			canvasRenderer.dispose?.();
+			(canvasRenderer as Renderer).dispose?.();
 			if (renderer !== canvasRenderer) renderer.dispose?.();
 			stats.remove();
 			if (!opts.canvas) canvas.remove();

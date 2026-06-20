@@ -12,13 +12,20 @@
  */
 
 import type { Rng } from "../../engine/math/rng.ts";
-import { type Color, darken, rgb, withAlpha } from "../../engine/math/color.ts";
+import {
+	type Color,
+	darken,
+	hsl,
+	lighten,
+	rgb,
+	withAlpha,
+} from "../../engine/math/color.ts";
 import { clamp } from "../../engine/math/ease.ts";
 import type { DisplayListBuilder } from "../../engine/render/draw-command.ts";
 import type { DrawContext, Entity, UpdateContext } from "../../engine/scene/entity.ts";
 import { silhouetteColor } from "../mood.ts";
 import type { CityEnv } from "../env.ts";
-import type { BuildingSpec, RoofKind } from "./kinds.ts";
+import type { BodyShape, BuildingSpec, RoofKind } from "./kinds.ts";
 import { WindowGrid } from "./window-grid.ts";
 
 const ANTENNA_LIGHT = rgb(255, 70, 64);
@@ -42,6 +49,13 @@ export class Building implements Entity<CityEnv> {
 	#window: Color = rgb(255, 255, 255);
 	#time = 0;
 	#phase = 0;
+	/** Cached facade top-light strength (0 = flat); resolved from config, gated to near layers. */
+	#shade = 0;
+	/** Cached neon-sign intensity (0 = off); resolved from config. */
+	#neon = 0;
+	/** Stable per-building rooftop-sign roll + hue (rendered only when `neon` is up). */
+	#signRoll = 1;
+	#signHue = 0;
 
 	constructor(depth: number, rng: Rng) {
 		this.depth = depth;
@@ -72,6 +86,10 @@ export class Building implements Entity<CityEnv> {
 		this.#phase = this.#rng.next();
 		this.#grid = new WindowGrid(spec.cols, spec.rows);
 		this.#grid.seed(this.#rng, litChance);
+		// After the window seed so default window patterns are untouched: a stable rooftop-sign
+		// roll + hue (only a fraction of tall city buildings carry one; the knob gates rendering).
+		this.#signRoll = this.#rng.next();
+		this.#signHue = this.#rng.float(0, 360);
 	}
 
 	/** Light interaction: pop most of this building's windows on (used by `scene.poke`). */
@@ -91,6 +109,9 @@ export class Building implements Entity<CityEnv> {
 		const mood = ctx.env.mood;
 		this.#color = silhouetteColor(mood, this.depth);
 		this.#window = mood.window;
+		// Facade light only earns its draw cost on the near bands; far/hazy ones stay flat.
+		this.#shade = this.depth > 0.78 ? cfg.buildingShading : 0;
+		this.#neon = cfg.neon;
 		this.#grid.update(ctx.dt, this.#rng, ctx.env.config);
 	}
 
@@ -105,8 +126,19 @@ export class Building implements Entity<CityEnv> {
 		const out = ctx.out;
 		const spec = this.#spec;
 
-		// Body (stepped for setbacks). Returns the rect to lay windows over.
-		const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks);
+		// Body (stepped for setbacks). Returns the rect to lay windows over. The facade light is
+		// drawn under the windows so lit cells stay crisp on top of it.
+		const win = drawBody(
+			out,
+			sx,
+			topY,
+			sw,
+			bh,
+			this.#color,
+			spec.setbacks,
+			this.#shade,
+			spec.shape,
+		);
 
 		// Windows.
 		this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
@@ -128,7 +160,43 @@ export class Building implements Entity<CityEnv> {
 			this.depth,
 			beaconRef,
 		);
+
+		// A rare rooftop neon sign on near, tall city buildings (knob-gated, hue slowly cycling).
+		if (
+			this.#neon > 0 && this.depth > 0.8 && this.#signRoll < 0.16 &&
+			SIGN_KINDS.has(spec.kind)
+		) {
+			drawNeon(out, sx, topY, sw, this.#signHue, this.#time, this.#neon);
+		}
 	}
+}
+
+/** Archetypes that may carry a rooftop sign (tall, urban). */
+const SIGN_KINDS = new Set<BuildingSpec["kind"]>([
+	"skyscraper",
+	"tower",
+	"landmark",
+	"midrise",
+]);
+
+/** Draw a small glowing rooftop billboard whose hue drifts slowly. */
+function drawNeon(
+	out: DisplayListBuilder,
+	x: number,
+	topY: number,
+	w: number,
+	baseHue: number,
+	time: number,
+	intensity: number,
+): void {
+	const signW = Math.max(3, w * 0.42);
+	const signH = Math.max(2, w * 0.12);
+	const cx = x + w / 2;
+	const y = topY - signH; // sits on the roofline
+	const hue = (baseHue + time * 0.008) % 360;
+	const col = hsl(hue, 0.85, 0.62);
+	out.glow(cx, y + signH / 2, signW * 0.95, withAlpha(col, 0.5 * intensity), 0.9);
+	out.rect(cx - signW / 2, y, signW, signH, withAlpha(col, 0.85 * intensity));
 }
 
 /** Draw the silhouette body; returns the rect windows should fill. */
@@ -140,9 +208,20 @@ function drawBody(
 	h: number,
 	color: Color,
 	setbacks: number,
+	shade: number,
+	shape: BodyShape = "box",
 ): { x: number; y: number; w: number; h: number } {
+	if (shape === "tree") {
+		drawTree(out, x, y, w, h, color);
+		return { x, y, w, h: 0 }; // no windows on a tree (the grid is empty anyway)
+	}
+	if (shape === "mound") {
+		drawMound(out, x, y, w, h, color);
+		return { x, y, w, h: 0 };
+	}
 	if (setbacks <= 0) {
 		out.rect(x, y, w, h, color);
+		shadeSegment(out, x, y, w, h, color, shade);
 		return { x, y, w, h };
 	}
 	const segs = setbacks + 1;
@@ -152,13 +231,85 @@ function drawBody(
 	let yBottom = y + h;
 	for (let i = 0; i < segs; i++) {
 		const yTop = yBottom - segH;
-		out.rect(curX, yTop, curW, segH + 0.5, color);
+		const sh = segH + 0.5;
+		out.rect(curX, yTop, curW, sh, color);
+		// Per-segment so the wash tracks the narrowing crown instead of bleeding past it.
+		shadeSegment(out, curX, yTop, curW, sh, color, shade);
 		curX += curW * 0.16;
 		curW *= 0.68;
 		yBottom = yTop;
 	}
 	// Windows fill the full-width bottom segment only (keeps them off the narrowed crown).
 	return { x, y: y + h - segH, w, h: segH };
+}
+
+/**
+ * A faint top-down rim of light washing the upper part of a body segment and fading to nothing —
+ * just enough to give the flat silhouette a sense of volume without a real lighting model. Same
+ * light hue at both stops (only the alpha falls) so the fade never drifts in colour.
+ */
+function shadeSegment(
+	out: DisplayListBuilder,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: Color,
+	shade: number,
+): void {
+	if (shade <= 0) return;
+	const lit = lighten(color, 0.5);
+	out.gradient(x, y, w, h, [
+		{ at: 0, color: withAlpha(lit, shade * 0.4) },
+		{ at: 0.55, color: withAlpha(lit, 0) },
+	], true);
+}
+
+/** A tree silhouette: a slim trunk under a soft, lumpy canopy of overlapping discs. */
+function drawTree(
+	out: DisplayListBuilder,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: Color,
+): void {
+	const cx = x + w / 2;
+	const groundY = y + h;
+	const trunkW = Math.max(1, w * 0.16);
+	const trunkH = h * 0.42;
+	out.rect(cx - trunkW / 2, groundY - trunkH, trunkW, trunkH, color);
+	// Canopy: a central disc flanked by two smaller ones for an organic, non-circular crown.
+	const r = w * 0.5;
+	const cyTop = y + r * 0.9;
+	out.circle(cx, cyTop, r, color);
+	out.circle(cx - w * 0.28, cyTop + h * 0.1, r * 0.7, color);
+	out.circle(cx + w * 0.28, cyTop + h * 0.1, r * 0.7, color);
+}
+
+/** A low rolling hill: a shallow circular-arc cap traced as a polygon, clipped to its baseline. */
+function drawMound(
+	out: DisplayListBuilder,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: Color,
+): void {
+	const cx = x + w / 2;
+	const baseY = y + h;
+	// Circle through the chord ends (width w at baseY) peaking h above: r = (w²/4 + h²) / 2h.
+	const r = (w * w / 4 + h * h) / (2 * h);
+	const cyc = y + r; // centre below the peak
+	const steps = 14;
+	const pts: number[] = [];
+	for (let i = 0; i <= steps; i++) {
+		const px = x + (w * i) / steps;
+		const dx = px - cx;
+		pts.push(px, cyc - Math.sqrt(Math.max(0, r * r - dx * dx)));
+	}
+	pts.push(x + w, baseY, x, baseY); // close along the baseline
+	out.polygon(pts, color);
 }
 
 function drawRoof(
@@ -248,6 +399,41 @@ function drawRoof(
 				const tx = x + i * tw;
 				out.polygon([tx, topY, tx + tw, topY, tx + tw, topY - th], color);
 			}
+			return;
+		}
+		case "barrel": {
+			// A low, wide rounded cap: a large disc pushed down so only a shallow arc shows above
+			// the roofline (it never bulges past the walls — its widest point sits at the edge).
+			const r = w * 0.48;
+			const cap = Math.min(r, w * 0.18 * (0.5 + scale));
+			out.circle(cx, topY + r - cap, r, color);
+			return;
+		}
+		case "deco": {
+			// A stepped art-deco crown: stacked, narrowing tiers topped by a finial.
+			const steps = 3;
+			const stepH = w * 0.14 * (0.6 + scale);
+			let stepW = w * 0.62;
+			let yb = topY;
+			for (let i = 0; i < steps; i++) {
+				out.rect(cx - stepW / 2, yb - stepH, stepW, stepH + 0.5, color);
+				yb -= stepH;
+				stepW *= 0.62;
+			}
+			out.line(cx, yb, cx, yb - stepH * 0.9, Math.max(1, w * 0.04), color);
+			return;
+		}
+		case "watertower": {
+			// The classic rooftop tank on splayed legs, with a rounded cap.
+			const tw = Math.max(4, w * 0.26 * (0.7 + scale));
+			const legH = w * 0.1 * (0.6 + scale);
+			const tankH = tw * 0.8;
+			const lw = Math.max(1, w * 0.03);
+			const baseY = topY - legH; // top of the legs / bottom of the tank
+			out.line(cx - tw * 0.3, topY, cx - tw * 0.3, baseY, lw, color);
+			out.line(cx + tw * 0.3, topY, cx + tw * 0.3, baseY, lw, color);
+			out.rect(cx - tw / 2, baseY - tankH, tw, tankH, color);
+			out.circle(cx, baseY - tankH, tw / 2, color);
 			return;
 		}
 	}

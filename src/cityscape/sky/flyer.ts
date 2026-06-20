@@ -14,7 +14,7 @@ import type { DrawContext, Entity, UpdateContext } from "../../engine/scene/enti
 import type { Mood } from "../mood.ts";
 import type { CityEnv } from "../env.ts";
 
-type FlyerType = "plane" | "satellite" | "shooting-star";
+type FlyerType = "plane" | "satellite" | "shooting-star" | "airship";
 
 interface Flyer {
 	type: FlyerType;
@@ -28,6 +28,8 @@ interface Flyer {
 
 const NAV_RED = rgb(255, 80, 70);
 const NAV_GREEN = rgb(90, 255, 120);
+const BLIMP = rgb(40, 46, 62); // dark silhouette against the night sky
+const GONDOLA = rgb(255, 200, 130); // warm underside light
 
 /** Schedules and draws the occasional sky crosser. */
 export class FlyerDirector implements Entity<CityEnv> {
@@ -65,8 +67,8 @@ export class FlyerDirector implements Entity<CityEnv> {
 
 	#spawn(): Flyer {
 		const type = this.#rng.weighted(
-			["plane", "satellite", "shooting-star"] as FlyerType[],
-			[3, 2, 2],
+			["plane", "satellite", "shooting-star", "airship"] as FlyerType[],
+			[3, 2, 2, 1],
 		);
 		const dir = this.#rng.bool() ? 1 : -1;
 		const x0 = dir > 0 ? -0.05 : 1.05;
@@ -83,13 +85,19 @@ export class FlyerDirector implements Entity<CityEnv> {
 				y1: this.#rng.float(0.35, 0.55),
 			};
 		}
-		const y = this.#rng.float(0.08, type === "plane" ? 0.3 : 0.22);
+		const y = this.#rng.float(
+			0.08,
+			type === "plane" ? 0.3 : type === "airship" ? 0.34 : 0.22,
+		);
+		const speed = type === "plane"
+			? this.#rng.float(0.00012, 0.0002)
+			: type === "airship"
+			? this.#rng.float(0.00003, 0.00006) // a slow, stately drift
+			: this.#rng.float(0.00008, 0.00014);
 		return {
 			type,
 			progress: 0,
-			speed: type === "plane"
-				? this.#rng.float(0.00012, 0.0002)
-				: this.#rng.float(0.00008, 0.00014),
+			speed,
 			x0,
 			y0: y,
 			x1,
@@ -121,6 +129,22 @@ export class FlyerDirector implements Entity<CityEnv> {
 		if (f.type === "satellite") {
 			const blink = 0.55 + 0.45 * Math.sin(this.#time * 0.006);
 			out.circle(x, y, 1.4, withAlpha(star, blink));
+			return;
+		}
+		if (f.type === "airship") {
+			const len = Math.max(8, width * 0.04);
+			const bh = len * 0.42;
+			// Elongated dark body from a few tapering discs.
+			for (let i = -2; i <= 2; i++) {
+				const br = bh * (1 - Math.abs(i) * 0.16);
+				out.circle(x + i * len * 0.2, y, br, BLIMP);
+			}
+			// A tail fin, and a faint warm gondola light that blinks slowly underneath.
+			const dir = f.x1 >= f.x0 ? 1 : -1;
+			out.circle(x - dir * len * 0.52, y - bh * 0.45, bh * 0.5, BLIMP);
+			const blink = 0.5 + 0.5 * Math.sin(this.#time * 0.004);
+			out.glow(x, y + bh * 0.6, bh * 1.6, withAlpha(GONDOLA, 0.4 * blink), 0.7);
+			out.circle(x, y + bh * 0.7, 1.2, withAlpha(GONDOLA, blink));
 			return;
 		}
 		// plane: faint body + blinking red/green nav lights

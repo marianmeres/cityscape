@@ -14,7 +14,8 @@ import { AsciiRenderer } from "../src/render/ascii/ascii-renderer.ts";
 import type { Renderer } from "../src/engine/render/renderer.ts";
 
 // ── Mount the running cityscape (writes config to the URL hash for permalinks) ──
-const handle = mountCityscape({ writeHash: true });
+// `randomizeSeed: false` so a bare load shows the curated default scene (seed included).
+const handle = mountCityscape({ writeHash: true, randomizeSeed: false });
 const canvasRenderer = handle.renderer;
 
 // ── Toast helper ────────────────────────────────────────────────────────────
@@ -68,19 +69,37 @@ function setAscii(on: boolean): void {
 	asciiBtn.textContent = on ? "Canvas view" : "ASCII view";
 }
 
-// ── Bottom bar (ASCII toggle + interaction hint) ──────────────────────────────
+// ── Bottom bar (ASCII toggle · fullscreen · interaction hint) ─────────────────
 const bar = document.createElement("div");
 bar.className = "cs-bar";
 const asciiBtn = document.createElement("button");
 asciiBtn.className = "cs-bar-btn";
 asciiBtn.textContent = "ASCII view";
 asciiBtn.addEventListener("click", () => setAscii(!asciiOn));
+const fsBtn = document.createElement("button");
+fsBtn.className = "cs-bar-btn";
+fsBtn.textContent = "Fullscreen";
+fsBtn.addEventListener("click", () => setImmersive(true));
 const hint = document.createElement("span");
 hint.className = "cs-hint";
-hint.textContent =
-	"move = parallax · wheel = speed · click = flash windows · keys: a / h";
-bar.append(asciiBtn, hint);
+hint.textContent = "move = parallax · wheel = speed · click = flash · keys: a / h / f";
+bar.append(asciiBtn, fsBtn, hint);
 document.body.append(bar);
+
+// ── Immersive view: hide every control and go fullscreen; Escape (or `f`) restores ──
+const controls: HTMLElement[] = [panel.el, bar];
+let immersive = false;
+function setImmersive(on: boolean): void {
+	if (on === immersive) return;
+	immersive = on;
+	for (const el of controls) el.style.display = on ? "none" : "";
+	if (on) document.documentElement.requestFullscreen?.().catch(() => {});
+	else if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+}
+// Leaving browser fullscreen (Escape, the window chrome, …) restores the controls.
+document.addEventListener("fullscreenchange", () => {
+	if (!document.fullscreenElement && immersive) setImmersive(false);
+});
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 addEventListener("keydown", (e) => {
@@ -89,6 +108,7 @@ addEventListener("keydown", (e) => {
 	}
 	if (e.key === "a") setAscii(!asciiOn);
 	else if (e.key === "h") panel.toggle();
+	else if (e.key === "f") setImmersive(!immersive);
 });
 
 // Expose for console poking.

@@ -13,14 +13,21 @@
 import type { Rng } from "../../engine/math/rng.ts";
 import { clamp } from "../../engine/math/ease.ts";
 
-/** The building archetypes. */
+/** The building archetypes. The last three are rural, surfaced only by the biome journey. */
 export type BuildingKind =
 	| "skyscraper"
 	| "tower"
 	| "midrise"
 	| "house"
 	| "factory"
-	| "landmark";
+	| "landmark"
+	| "tree"
+	| "barn"
+	| "silo"
+	| "hill";
+
+/** How a silhouette body is drawn: a stacked box (default), an organic tree, or a rolling mound. */
+export type BodyShape = "box" | "tree" | "mound";
 
 /** Roof / crown features drawn atop the silhouette. */
 export type RoofKind =
@@ -31,11 +38,16 @@ export type RoofKind =
 	| "dome"
 	| "chimneys"
 	| "sawtooth"
-	| "pitched";
+	| "pitched"
+	| "barrel"
+	| "deco"
+	| "watertower";
 
 /** A renderer-agnostic description of one building's geometry. */
 export interface BuildingSpec {
 	kind: BuildingKind;
+	/** Body silhouette shape (default `"box"` when omitted). */
+	shape?: BodyShape;
 	/**
 	 * Width in **viewport-height units** (same scale as {@link BuildingSpec.height}), so the
 	 * silhouette's aspect ratio is realistic and constant at any window size. A skyscraper ~0.12.
@@ -75,8 +87,8 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			width,
 			height,
 			roof: rng.weighted(
-				["antenna", "flat", "spire", "tank"] as RoofKind[],
-				[4, 3, 2, 1],
+				["antenna", "flat", "spire", "tank", "deco"] as RoofKind[],
+				[4, 3, 2, 1, 2],
 			),
 			roofScale: rng.float(0.5, 1),
 			cols,
@@ -92,12 +104,10 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			kind: "tower",
 			width,
 			height,
-			roof: rng.weighted(["flat", "tank", "dome", "antenna"] as RoofKind[], [
-				4,
-				2,
-				2,
-				2,
-			]),
+			roof: rng.weighted(
+				["flat", "tank", "dome", "antenna", "barrel"] as RoofKind[],
+				[4, 2, 2, 2, 2],
+			),
 			roofScale: rng.float(0.5, 1),
 			cols,
 			rows,
@@ -112,7 +122,10 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			kind: "midrise",
 			width,
 			height,
-			roof: rng.weighted(["flat", "antenna", "tank"] as RoofKind[], [5, 2, 2]),
+			roof: rng.weighted(
+				["flat", "antenna", "tank", "watertower"] as RoofKind[],
+				[5, 2, 2, 2],
+			),
 			roofScale: rng.float(0.4, 0.8),
 			cols,
 			rows,
@@ -155,11 +168,70 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			kind: "landmark",
 			width,
 			height,
-			roof: rng.weighted(["spire", "dome"] as RoofKind[], [3, 2]),
+			roof: rng.weighted(["spire", "dome", "deco"] as RoofKind[], [3, 2, 2]),
 			roofScale: rng.float(0.7, 1),
 			cols,
 			rows,
 			setbacks: rng.weighted([0, 1], [2, 3]),
+		};
+	},
+	// ── Rural archetypes (biome journey only) ──────────────────────────
+	tree(rng) {
+		const height = rng.float(0.05, 0.13);
+		const width = height * rng.float(0.7, 1.1);
+		return {
+			kind: "tree",
+			shape: "tree",
+			width,
+			height,
+			roof: "flat",
+			roofScale: 0,
+			cols: 0,
+			rows: 0,
+			setbacks: 0,
+		};
+	},
+	barn(rng) {
+		const height = rng.float(0.06, 0.11);
+		const width = height * rng.float(1.6, 2.6); // long & low
+		return {
+			kind: "barn",
+			width,
+			height,
+			roof: "pitched",
+			roofScale: rng.float(0.7, 1),
+			cols: rng.int(0, 3),
+			rows: rng.int(0, 2),
+			setbacks: 0,
+		};
+	},
+	silo(rng) {
+		const height = rng.float(0.1, 0.18);
+		const width = height * rng.float(0.28, 0.42); // tall & narrow
+		return {
+			kind: "silo",
+			width,
+			height,
+			roof: rng.weighted(["dome", "barrel"] as RoofKind[], [3, 2]),
+			roofScale: rng.float(0.6, 1),
+			cols: 0,
+			rows: 0,
+			setbacks: 0,
+		};
+	},
+	hill(rng) {
+		const height = rng.float(0.05, 0.13);
+		const width = height * rng.float(2.5, 5); // wide & low rolling mound
+		return {
+			kind: "hill",
+			shape: "mound",
+			width,
+			height,
+			roof: "flat",
+			roofScale: 0,
+			cols: 0,
+			rows: 0,
+			setbacks: 0,
 		};
 	},
 };

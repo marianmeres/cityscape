@@ -12,14 +12,35 @@
  */
 
 import type { Rng } from "../../engine/math/rng.ts";
-import { type Color, darken, lighten, mix, withAlpha } from "../../engine/math/color.ts";
+import {
+	type Color,
+	darken,
+	lighten,
+	mix,
+	rgb,
+	withAlpha,
+} from "../../engine/math/color.ts";
+import { clamp } from "../../engine/math/ease.ts";
 import type { DrawContext, Entity, UpdateContext } from "../../engine/scene/entity.ts";
 import type { Mood } from "../mood.ts";
 import type { CityEnv } from "../env.ts";
 
+/** Warm/cool tints the window-light reflections lean toward (matching the window grid). */
+const WARM_WIN = rgb(255, 200, 130);
+const COOL_WIN = rgb(200, 222, 255);
+
 interface Reflection {
 	xFrac: number;
 	width: number;
+}
+
+/** One shimmering reflection of the city's window lights. */
+interface WindowReflection {
+	xFrac: number;
+	width: number;
+	warm: boolean;
+	phase: number;
+	depth: number; // how far down the band it reaches (fraction)
 }
 
 /** A calm reflective water plane occupying the bottom `waterLevel` of the viewport. */
@@ -31,8 +52,10 @@ export class Water implements Entity<CityEnv> {
 	#mood!: Mood;
 	#level = 0.33;
 	#time = 0;
+	#litFactor = 0.4;
 	#shimmer: number[];
 	#reflections: Reflection[];
+	#windowRefl: WindowReflection[];
 
 	constructor(rng: Rng) {
 		// Fixed shimmer-line depths (fraction of the water band) and a few light smears.
@@ -41,12 +64,22 @@ export class Water implements Entity<CityEnv> {
 			xFrac: rng.float(0.05, 0.95),
 			width: rng.float(0.01, 0.04),
 		}));
+		// Narrow, brighter, colour-varied smears standing in for the city's window lights.
+		this.#windowRefl = Array.from({ length: 12 }, () => ({
+			xFrac: rng.float(0.02, 0.98),
+			width: rng.float(0.004, 0.016),
+			warm: rng.bool(0.6),
+			phase: rng.float(0, 6.283),
+			depth: rng.float(0.4, 0.85),
+		}));
 	}
 
 	update(ctx: UpdateContext<CityEnv>): void {
 		this.#mood = ctx.env.mood;
 		this.#level = ctx.env.config.waterLevel;
 		this.#time = ctx.time;
+		// Brighter, busier window reflections when more windows are lit.
+		this.#litFactor = clamp(ctx.env.config.windowLightChance / 0.18, 0.25, 1.6);
 	}
 
 	draw(ctx: DrawContext): void {
@@ -85,6 +118,21 @@ export class Water implements Entity<CityEnv> {
 			out.gradient(x + wob, waterY, w, waterH * 0.7, [
 				{ at: 0, color: withAlpha(reflTone, 0.16) },
 				{ at: 1, color: withAlpha(reflTone, 0) },
+			], true);
+		}
+
+		// Window-light reflections: narrow, warm/cool-tinted, individually shimmering — busier and
+		// brighter when more of the city's windows are lit.
+		for (const r of this.#windowRefl) {
+			const tint = mix(mood.window, r.warm ? WARM_WIN : COOL_WIN, 0.4);
+			const x = r.xFrac * width;
+			const w = Math.max(1, r.width * width);
+			const shimmer = 0.5 + 0.5 * Math.sin(this.#time * 0.0016 + r.phase);
+			const wob = Math.sin(this.#time * 0.0011 + r.phase) * w * 0.6;
+			const a = 0.14 * shimmer * this.#litFactor;
+			out.gradient(x + wob, waterY, w, waterH * r.depth, [
+				{ at: 0, color: withAlpha(tint, a) },
+				{ at: 1, color: withAlpha(tint, 0) },
 			], true);
 		}
 

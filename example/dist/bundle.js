@@ -91,8 +91,15 @@ class Engine {
     #frame = (time)=>{
         if (!this.#running) return;
         if (this.#last == null) this.#last = time;
-        const delta = clamp(time - this.#last, 0, this.#maxFrameDelta);
+        const raw = time - this.#last;
         this.#last = time;
+        if (raw > this.#maxFrameDelta) {
+            const { alpha } = this.stepper.advance(0, this.#opts.step);
+            this.#opts.render(alpha);
+            this.#schedule();
+            return;
+        }
+        const delta = clamp(raw, 0, this.#maxFrameDelta);
         const { alpha } = this.stepper.advance(delta, this.#opts.step);
         this.#opts.render(alpha);
         this.#schedule();
@@ -259,7 +266,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 120,
         step: 1,
-        default: 20,
+        default: 120,
         unit: "u/s",
         help: "Scroll speed. 0 holds the city still."
     },
@@ -299,7 +306,7 @@ const CONFIG_SCHEMA = [
         min: -0.25,
         max: 0.25,
         step: 0.01,
-        default: 0.12,
+        default: -0.08,
         help: "Pan the camera up (more sky) or down (more water)."
     },
     {
@@ -326,7 +333,7 @@ const CONFIG_SCHEMA = [
         label: "Seed",
         group: "World",
         type: "seed",
-        default: "arj213f",
+        default: "hey ho lets go",
         help: "Same seed + settings reproduces the exact city."
     },
     {
@@ -348,7 +355,7 @@ const CONFIG_SCHEMA = [
         min: 0.4,
         max: 1.8,
         step: 0.05,
-        default: 0.45,
+        default: 0.5,
         help: "How tightly buildings pack in."
     },
     {
@@ -359,7 +366,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 0.5,
         step: 0.02,
-        default: 0.33,
+        default: 0.1,
         help: "Fraction of the bottom that is calm water (sea/river). 0 = no water."
     },
     {
@@ -374,11 +381,55 @@ const CONFIG_SCHEMA = [
         help: "Lit shore/embankment band between the city and the water."
     },
     {
+        key: "buildingShading",
+        label: "Facade light",
+        group: "World",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.5,
+        help: "Soft top-light on near buildings so silhouettes read as volumes. 0 = flat."
+    },
+    {
+        key: "neon",
+        label: "Neon signs",
+        group: "World",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.4,
+        help: "Rare hue-cycling rooftop signs on near city buildings. 0 = none."
+    },
+    {
+        key: "biomeVariety",
+        label: "Biome journey",
+        group: "World",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.3,
+        help: "Drift between dense city and open outskirts as you scroll. 0 = uniform city."
+    },
+    {
+        key: "biomeScale",
+        label: "Region length",
+        group: "World",
+        type: "range",
+        min: 1,
+        max: 12,
+        step: 0.5,
+        default: 4.5,
+        help: "How long each city/outskirts stretch lasts (world units). Higher = longer."
+    },
+    {
         key: "palette",
         label: "Palette",
         group: "Mood",
         type: "select",
-        default: "navy",
+        default: "dawn",
         options: PALETTE_NAMES.map((n)=>({
                 value: n,
                 label: PALETTES[n].label
@@ -404,7 +455,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.02,
-        default: 0.42
+        default: 0.76
     },
     {
         key: "colorTemperature",
@@ -414,8 +465,19 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.02,
-        default: 0.5,
+        default: 0.48,
         help: "Bias the cycle toward warm (0) or cool (1)."
+    },
+    {
+        key: "vignette",
+        label: "Vignette",
+        group: "Mood",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 1,
+        help: "Darken the frame toward the corners (+ faint grain). 0 = off."
     },
     {
         key: "windowLightChance",
@@ -435,7 +497,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.02,
-        default: 0,
+        default: 0.48,
         help: "How often windows switch. Low stays calm."
     },
     {
@@ -446,7 +508,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.5
+        default: 0.1
     },
     {
         key: "starDensity",
@@ -456,7 +518,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.85
+        default: 1
     },
     {
         key: "cloudChance",
@@ -466,7 +528,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.8
+        default: 0.9
     },
     {
         key: "birdChance",
@@ -476,7 +538,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.8
+        default: 0.95
     },
     {
         key: "flyerChance",
@@ -486,8 +548,41 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.9,
+        default: 0.95,
         help: "Rare crossers: planes, satellites, shooting stars."
+    },
+    {
+        key: "trafficChance",
+        label: "Traffic",
+        group: "Sky",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.1,
+        help: "Sparse headlights crossing the waterfront. Needs a shore to drive on."
+    },
+    {
+        key: "fog",
+        label: "Ground fog",
+        group: "Sky",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0,
+        help: "Low mist hazing the base of the skyline. 0 = clear."
+    },
+    {
+        key: "aurora",
+        label: "Aurora",
+        group: "Sky",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0,
+        help: "Faint sky shimmer (navy & vaporwave palettes only). 0 = off."
     },
     {
         key: "audioEnabled",
@@ -644,6 +739,24 @@ function darken(c, amount) {
 }
 function lighten(c, amount) {
     return mix(c, rgb(255, 255, 255, c.a), amount);
+}
+function hsl(h, s, l, a = 1) {
+    const hh = (h % 360 + 360) % 360 / 360;
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const r1 = hueToRgb(p, q, hh + 1 / 3);
+    const g = hueToRgb(p, q, hh);
+    const b = hueToRgb(p, q, hh - 1 / 3);
+    return rgb(r1 * 255, g * 255, b * 255, a);
+}
+function hueToRgb(p, q, t) {
+    let x = t;
+    if (x < 0) x += 1;
+    if (x > 1) x -= 1;
+    if (x < 1 / 6) return p + (q - p) * 6 * x;
+    if (x < 1 / 2) return q;
+    if (x < 2 / 3) return p + (q - p) * (2 / 3 - x) * 6;
+    return p;
 }
 function round3(n) {
     return Math.round(n * 1000) / 1000;
@@ -1074,6 +1187,9 @@ class WindowGrid {
     #fill;
     #toggle = 0;
     #salt = 0;
+    #litFloor = -1;
+    #signIdx = -1;
+    #signHue = 0;
     constructor(cols, rows, opts = {}){
         this.cols = Math.max(0, Math.floor(cols));
         this.rows = Math.max(0, Math.floor(rows));
@@ -1088,6 +1204,15 @@ class WindowGrid {
         }
         this.#toggle = rng.float(400, 2600);
         this.#salt = Math.floor(rng.next() * 9973);
+        this.#litFloor = this.rows >= 4 && rng.next() < 0.2 ? rng.int(1, this.rows - 2) : -1;
+        if (this.cols > 0 && this.rows > 0 && rng.next() < 0.12) {
+            const col = rng.int(0, this.cols - 1);
+            const row = rng.int(0, Math.max(0, Math.ceil(this.rows / 2) - 1));
+            this.#signIdx = row * this.cols + col;
+            this.#signHue = rng.float(0, 360);
+        } else {
+            this.#signIdx = -1;
+        }
     }
     update(dt, rng, config) {
         if (this.lit.length === 0 || config.windowToggleRate <= 0) return;
@@ -1110,22 +1235,40 @@ class WindowGrid {
         const offX = (cellW - winW) / 2;
         const offY = (cellH - winH) / 2;
         const glow = depth > 0.55 && winW > 1.4;
+        const detail = winW > 1.6;
+        const tintRange = 0.28;
         for(let r1 = 0; r1 < this.rows; r1++){
             for(let c = 0; c < this.cols; c++){
                 const idx = r1 * this.cols + c;
-                if (this.lit[idx] === 0) continue;
+                const isSign = idx === this.#signIdx;
+                if (this.lit[idx] === 0 && r1 !== this.#litFloor && !isSign) continue;
                 const wx = ix + c * cellW + offX;
-                const wy = iy + r1 * cellH + offY;
-                const hTint = cellHash(idx + this.#salt);
-                const hBright = cellHash(idx * 2 + this.#salt + 7);
-                const toward = hTint < 0.5 ? WARM_TINT : COOL_TINT;
-                const tinted = mix(color, toward, Math.abs(hTint - 0.5) * 2 * 0.28);
-                const bright = 0.6 + hBright * 0.4;
-                const cell = withAlpha(tinted, color.a * bright);
-                if (glow) {
-                    out.glow(wx + winW / 2, wy + winH / 2, winW * 1.7, fadeAlpha(cell, 0.45), 0.55);
+                let wy = iy + r1 * cellH + offY;
+                let wh = winH;
+                let cell;
+                if (isSign && detail) {
+                    cell = withAlpha(hsl(this.#signHue, 0.55, 0.62), color.a);
+                } else {
+                    const hTint = cellHash(idx + this.#salt);
+                    const hBright = cellHash(idx * 2 + this.#salt + 7);
+                    let toward = hTint < 0.5 ? WARM_TINT : COOL_TINT;
+                    let amt = Math.abs(hTint - 0.5) * 2 * 0.28;
+                    let bright = 0.6 + hBright * 0.4;
+                    if (this.rows >= 4 && r1 <= 1) {
+                        toward = WARM_TINT;
+                        amt = Math.max(amt, tintRange * 0.8);
+                        bright = Math.min(1, bright + 0.15);
+                    }
+                    cell = withAlpha(mix(color, toward, amt), color.a * bright);
+                    if (detail && cellHash(idx * 3 + this.#salt + 11) < 0.22) {
+                        wh = winH * 0.55;
+                        wy += winH - wh;
+                    }
                 }
-                out.rect(wx, wy, winW, winH, cell);
+                if (glow) {
+                    out.glow(wx + winW / 2, wy + wh / 2, winW * 1.7, fadeAlpha(cell, 0.45), 0.55);
+                }
+                out.rect(wx, wy, winW, wh, cell);
             }
         }
     }
@@ -1150,6 +1293,10 @@ class Building {
     #window = rgb(255, 255, 255);
     #time = 0;
     #phase = 0;
+    #shade = 0;
+    #neon = 0;
+    #signRoll = 1;
+    #signHue = 0;
     constructor(depth, rng){
         this.depth = depth;
         this.#rng = rng;
@@ -1169,6 +1316,8 @@ class Building {
         this.#phase = this.#rng.next();
         this.#grid = new WindowGrid(spec.cols, spec.rows);
         this.#grid.seed(this.#rng, litChance);
+        this.#signRoll = this.#rng.next();
+        this.#signHue = this.#rng.float(0, 360);
     }
     flash() {
         this.#grid.seed(this.#rng, 0.85);
@@ -1180,6 +1329,8 @@ class Building {
         const mood = ctx.env.mood;
         this.#color = silhouetteColor(mood, this.depth);
         this.#window = mood.window;
+        this.#shade = this.depth > 0.78 ? cfg.buildingShading : 0;
+        this.#neon = cfg.neon;
         this.#grid.update(ctx.dt, this.#rng, ctx.env.config);
     }
     draw(ctx) {
@@ -1191,15 +1342,53 @@ class Building {
         const topY = groundY - bh;
         const out = ctx.out;
         const spec = this.#spec;
-        const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks);
+        const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks, this.#shade, spec.shape);
         this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
         const beaconRef = sw / spec.width;
         drawRoof(out, spec.roof, sx, topY, sw, spec.roofScale, this.#color, this.#time, this.#phase, this.depth, beaconRef);
+        if (this.#neon > 0 && this.depth > 0.8 && this.#signRoll < 0.16 && SIGN_KINDS.has(spec.kind)) {
+            drawNeon(out, sx, topY, sw, this.#signHue, this.#time, this.#neon);
+        }
     }
 }
-function drawBody(out, x, y, w, h, color, setbacks) {
+const SIGN_KINDS = new Set([
+    "skyscraper",
+    "tower",
+    "landmark",
+    "midrise"
+]);
+function drawNeon(out, x, topY, w, baseHue, time, intensity) {
+    const signW = Math.max(3, w * 0.42);
+    const signH = Math.max(2, w * 0.12);
+    const cx = x + w / 2;
+    const y = topY - signH;
+    const hue = (baseHue + time * 0.008) % 360;
+    const col = hsl(hue, 0.85, 0.62);
+    out.glow(cx, y + signH / 2, signW * 0.95, withAlpha(col, 0.5 * intensity), 0.9);
+    out.rect(cx - signW / 2, y, signW, signH, withAlpha(col, 0.85 * intensity));
+}
+function drawBody(out, x, y, w, h, color, setbacks, shade, shape = "box") {
+    if (shape === "tree") {
+        drawTree(out, x, y, w, h, color);
+        return {
+            x,
+            y,
+            w,
+            h: 0
+        };
+    }
+    if (shape === "mound") {
+        drawMound(out, x, y, w, h, color);
+        return {
+            x,
+            y,
+            w,
+            h: 0
+        };
+    }
     if (setbacks <= 0) {
         out.rect(x, y, w, h, color);
+        shadeSegment(out, x, y, w, h, color, shade);
         return {
             x,
             y,
@@ -1214,7 +1403,9 @@ function drawBody(out, x, y, w, h, color, setbacks) {
     let yBottom = y + h;
     for(let i = 0; i < segs; i++){
         const yTop = yBottom - segH;
-        out.rect(curX, yTop, curW, segH + 0.5, color);
+        const sh = segH + 0.5;
+        out.rect(curX, yTop, curW, sh, color);
+        shadeSegment(out, curX, yTop, curW, sh, color, shade);
         curX += curW * 0.16;
         curW *= 0.68;
         yBottom = yTop;
@@ -1225,6 +1416,46 @@ function drawBody(out, x, y, w, h, color, setbacks) {
         w,
         h: segH
     };
+}
+function shadeSegment(out, x, y, w, h, color, shade) {
+    if (shade <= 0) return;
+    const lit = lighten(color, 0.5);
+    out.gradient(x, y, w, h, [
+        {
+            at: 0,
+            color: withAlpha(lit, shade * 0.4)
+        },
+        {
+            at: 0.55,
+            color: withAlpha(lit, 0)
+        }
+    ], true);
+}
+function drawTree(out, x, y, w, h, color) {
+    const cx = x + w / 2;
+    const groundY = y + h;
+    const trunkW = Math.max(1, w * 0.16);
+    const trunkH = h * 0.42;
+    out.rect(cx - trunkW / 2, groundY - trunkH, trunkW, trunkH, color);
+    const r1 = w * 0.5;
+    const cyTop = y + r1 * 0.9;
+    out.circle(cx, cyTop, r1, color);
+    out.circle(cx - w * 0.28, cyTop + h * 0.1, r1 * 0.7, color);
+    out.circle(cx + w * 0.28, cyTop + h * 0.1, r1 * 0.7, color);
+}
+function drawMound(out, x, y, w, h, color) {
+    const cx = x + w / 2;
+    const baseY = y + h;
+    const r1 = (w * w / 4 + h * h) / (2 * h);
+    const cyc = y + r1;
+    const pts = [];
+    for(let i = 0; i <= 14; i++){
+        const px = x + w * i / 14;
+        const dx = px - cx;
+        pts.push(px, cyc - Math.sqrt(Math.max(0, r1 * r1 - dx * dx)));
+    }
+    pts.push(x + w, baseY, x, baseY);
+    out.polygon(pts, color);
 }
 function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth, beaconRef) {
     const cx = x + w / 2;
@@ -1315,6 +1546,39 @@ function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth, beaco
                 }
                 return;
             }
+        case "barrel":
+            {
+                const r1 = w * 0.48;
+                const cap = Math.min(r1, w * 0.18 * (0.5 + scale));
+                out.circle(cx, topY + r1 - cap, r1, color);
+                return;
+            }
+        case "deco":
+            {
+                const stepH = w * 0.14 * (0.6 + scale);
+                let stepW = w * 0.62;
+                let yb = topY;
+                for(let i = 0; i < 3; i++){
+                    out.rect(cx - stepW / 2, yb - stepH, stepW, stepH + 0.5, color);
+                    yb -= stepH;
+                    stepW *= 0.62;
+                }
+                out.line(cx, yb, cx, yb - stepH * 0.9, Math.max(1, w * 0.04), color);
+                return;
+            }
+        case "watertower":
+            {
+                const tw = Math.max(4, w * 0.26 * (0.7 + scale));
+                const legH = w * 0.1 * (0.6 + scale);
+                const tankH = tw * 0.8;
+                const lw = Math.max(1, w * 0.03);
+                const baseY = topY - legH;
+                out.line(cx - tw * 0.3, topY, cx - tw * 0.3, baseY, lw, color);
+                out.line(cx + tw * 0.3, topY, cx + tw * 0.3, baseY, lw, color);
+                out.rect(cx - tw / 2, baseY - tankH, tw, tankH, color);
+                out.circle(cx, baseY - tankH, tw / 2, color);
+                return;
+            }
     }
 }
 function drawSmoke(out, x, y, w, time, phase) {
@@ -1392,6 +1656,66 @@ class SkyBackdrop {
         ], true);
     }
 }
+const PALETTE_HUE = {
+    navy: 155,
+    vaporwave: 295
+};
+class Aurora {
+    depth = 0.015;
+    bounds = {
+        x: -Infinity,
+        width: Infinity
+    };
+    alive = true;
+    #noise;
+    #amount = 0;
+    #hue = 155;
+    #active = false;
+    #time = 0;
+    constructor(rng){
+        this.#noise = createNoise1D((rng.seed ^ 0xa05a) >>> 0, 2);
+    }
+    update(ctx) {
+        const cfg = ctx.env.config;
+        this.#amount = cfg.aurora;
+        const hue = PALETTE_HUE[cfg.palette];
+        this.#active = hue !== undefined && this.#amount > 0.001;
+        if (hue !== undefined) this.#hue = hue;
+        this.#time = ctx.time;
+    }
+    draw(ctx) {
+        if (!this.#active) return;
+        const { out, width, height } = ctx;
+        const bandTop = height * 0.05;
+        const bandH = height * 0.3;
+        const t = this.#time;
+        for(let i = 0; i < 20; i++){
+            const fx = (i + 0.5) / 20;
+            const n = this.#noise.at(fx * 4 + t * 0.00004);
+            const drift = Math.sin(t * 0.0002 + i * 1.3) * width * 0.012;
+            const x = fx * width + drift;
+            const w = width / 20 * 1.4;
+            const h = bandH * (0.35 + n * 0.65);
+            const top = bandTop + (bandH - h) * this.#noise.at(fx * 7 + 3.1);
+            const a = this.#amount * 0.16 * (0.25 + n * 0.75);
+            const col = hsl(this.#hue + (fx - 0.5) * 40, 0.7, 0.6);
+            out.gradient(x - w / 2, top, w, h, [
+                {
+                    at: 0,
+                    color: withAlpha(col, 0)
+                },
+                {
+                    at: 0.5,
+                    color: withAlpha(col, a)
+                },
+                {
+                    at: 1,
+                    color: withAlpha(col, 0)
+                }
+            ], true);
+        }
+    }
+}
 class Starfield {
     depth = 0.02;
     bounds = {
@@ -1431,10 +1755,12 @@ class Starfield {
         const t = this.#time * 0.002;
         for(let i = 0; i < shown; i++){
             const s = this.#stars[i];
-            const sx = wrap(s.x - scroll, this.#tileW);
-            if (sx > width) continue;
             const twinkle = 0.65 + 0.35 * Math.sin(t + s.tw);
-            out.circle(sx, s.yFrac * height, s.size, withAlpha(star, s.base * twinkle));
+            const color = withAlpha(star, s.base * twinkle);
+            const y = s.yFrac * height;
+            for(let sx = wrap(s.x - scroll, this.#tileW); sx < width; sx += this.#tileW){
+                out.circle(sx, y, s.size, color);
+            }
         }
     }
 }
@@ -1545,6 +1871,8 @@ class CloudField {
 }
 const NAV_RED = rgb(255, 80, 70);
 const NAV_GREEN = rgb(90, 255, 120);
+const BLIMP = rgb(40, 46, 62);
+const GONDOLA = rgb(255, 200, 130);
 class FlyerDirector {
     depth = 0.06;
     bounds = {
@@ -1580,11 +1908,13 @@ class FlyerDirector {
         const type = this.#rng.weighted([
             "plane",
             "satellite",
-            "shooting-star"
+            "shooting-star",
+            "airship"
         ], [
             3,
             2,
-            2
+            2,
+            1
         ]);
         const dir = this.#rng.bool() ? 1 : -1;
         const x0 = dir > 0 ? -0.05 : 1.05;
@@ -1601,11 +1931,12 @@ class FlyerDirector {
                 y1: this.#rng.float(0.35, 0.55)
             };
         }
-        const y = this.#rng.float(0.08, type === "plane" ? 0.3 : 0.22);
+        const y = this.#rng.float(0.08, type === "plane" ? 0.3 : type === "airship" ? 0.34 : 0.22);
+        const speed = type === "plane" ? this.#rng.float(0.00012, 0.0002) : type === "airship" ? this.#rng.float(0.00003, 0.00006) : this.#rng.float(0.00008, 0.00014);
         return {
             type,
             progress: 0,
-            speed: type === "plane" ? this.#rng.float(0.00012, 0.0002) : this.#rng.float(0.00008, 0.00014),
+            speed,
             x0,
             y0: y,
             x1,
@@ -1635,6 +1966,20 @@ class FlyerDirector {
         if (f.type === "satellite") {
             const blink = 0.55 + 0.45 * Math.sin(this.#time * 0.006);
             out.circle(x, y, 1.4, withAlpha(star, blink));
+            return;
+        }
+        if (f.type === "airship") {
+            const len = Math.max(8, width * 0.04);
+            const bh = len * 0.42;
+            for(let i = -2; i <= 2; i++){
+                const br = bh * (1 - Math.abs(i) * 0.16);
+                out.circle(x + i * len * 0.2, y, br, BLIMP);
+            }
+            const dir = f.x1 >= f.x0 ? 1 : -1;
+            out.circle(x - dir * len * 0.52, y - bh * 0.45, bh * 0.5, BLIMP);
+            const blink = 0.5 + 0.5 * Math.sin(this.#time * 0.004);
+            out.glow(x, y + bh * 0.6, bh * 1.6, withAlpha(GONDOLA, 0.4 * blink), 0.7);
+            out.circle(x, y + bh * 0.7, 1.2, withAlpha(GONDOLA, blink));
             return;
         }
         out.circle(x, y, 1.6, withAlpha(star, 0.5));
@@ -1704,6 +2049,8 @@ function drawBird(out, x, y, size, flap, color) {
     out.line(x - size, y + wing, x, y, Math.max(1, size * 0.18), color);
     out.line(x, y, x + size, y + wing, Math.max(1, size * 0.18), color);
 }
+const WARM_WIN = rgb(255, 200, 130);
+const COOL_WIN = rgb(200, 222, 255);
 class Water {
     depth = 1;
     bounds = {
@@ -1714,8 +2061,10 @@ class Water {
     #mood;
     #level = 0.33;
     #time = 0;
+    #litFactor = 0.4;
     #shimmer;
     #reflections;
+    #windowRefl;
     constructor(rng){
         this.#shimmer = Array.from({
             length: 6
@@ -1726,11 +2075,21 @@ class Water {
                 xFrac: rng.float(0.05, 0.95),
                 width: rng.float(0.01, 0.04)
             }));
+        this.#windowRefl = Array.from({
+            length: 12
+        }, ()=>({
+                xFrac: rng.float(0.02, 0.98),
+                width: rng.float(0.004, 0.016),
+                warm: rng.bool(0.6),
+                phase: rng.float(0, 6.283),
+                depth: rng.float(0.4, 0.85)
+            }));
     }
     update(ctx) {
         this.#mood = ctx.env.mood;
         this.#level = ctx.env.config.waterLevel;
         this.#time = ctx.time;
+        this.#litFactor = clamp(ctx.env.config.windowLightChance / 0.18, 0.25, 1.6);
     }
     draw(ctx) {
         if (this.#level <= 0.001) return;
@@ -1776,6 +2135,24 @@ class Water {
                 {
                     at: 1,
                     color: withAlpha(reflTone, 0)
+                }
+            ], true);
+        }
+        for (const r1 of this.#windowRefl){
+            const tint = mix(mood.window, r1.warm ? WARM_WIN : COOL_WIN, 0.4);
+            const x = r1.xFrac * width;
+            const w = Math.max(1, r1.width * width);
+            const shimmer = 0.5 + 0.5 * Math.sin(this.#time * 0.0016 + r1.phase);
+            const wob = Math.sin(this.#time * 0.0011 + r1.phase) * w * 0.6;
+            const a = 0.14 * shimmer * this.#litFactor;
+            out.gradient(x + wob, waterY, w, waterH * r1.depth, [
+                {
+                    at: 0,
+                    color: withAlpha(tint, a)
+                },
+                {
+                    at: 1,
+                    color: withAlpha(tint, 0)
                 }
             ], true);
         }
@@ -1868,6 +2245,135 @@ function drawLampReflection(out, x, waterY, waterH, r1, time, phase) {
         }
     ], true);
 }
+class GroundFog {
+    depth = 1.05;
+    bounds = {
+        x: -Infinity,
+        width: Infinity
+    };
+    alive = true;
+    #mood;
+    #amount = 0;
+    #water = 0.33;
+    #shore = 0.025;
+    #time = 0;
+    update(ctx) {
+        this.#mood = ctx.env.mood;
+        this.#amount = ctx.env.config.fog;
+        this.#water = ctx.env.config.waterLevel;
+        this.#shore = ctx.env.config.shoreHeight;
+        this.#time = ctx.time;
+    }
+    draw(ctx) {
+        if (this.#amount <= 0.001) return;
+        const { out, width, height } = ctx;
+        const waterY = (1 - this.#water) * height;
+        const feetY = (1 - this.#water - this.#shore) * height;
+        const top = feetY - height * 0.16;
+        const bandH = waterY - top;
+        if (bandH <= 0) return;
+        const breath = 0.85 + 0.15 * Math.sin(this.#time * 0.0004);
+        const a = clamp(this.#amount * 0.34 * breath, 0, 1);
+        const c = mix(this.#mood.haze, this.#mood.horizonGlow, 0.4);
+        out.gradient(0, top, width, bandH, [
+            {
+                at: 0,
+                color: withAlpha(c, 0)
+            },
+            {
+                at: 0.65,
+                color: withAlpha(c, a)
+            },
+            {
+                at: 1,
+                color: withAlpha(c, a * 0.6)
+            }
+        ], true);
+    }
+}
+const HEAD_WARM = rgb(255, 214, 150);
+const HEAD_COOL = rgb(206, 224, 255);
+const TAIL = rgb(255, 72, 60);
+class TrafficDirector {
+    depth = 1.12;
+    bounds = {
+        x: -Infinity,
+        width: Infinity
+    };
+    alive = true;
+    #rng;
+    #vehicles = [];
+    #timer;
+    #time = 0;
+    #water = 0.33;
+    #shore = 0.025;
+    constructor(rng){
+        this.#rng = rng;
+        this.#timer = rng.float(1500, 5000);
+    }
+    update(ctx) {
+        this.#time = ctx.time;
+        this.#water = ctx.env.config.waterLevel;
+        this.#shore = ctx.env.config.shoreHeight;
+        const chance = ctx.env.config.trafficChance;
+        if (this.#vehicles.length > 0) {
+            let w = 0;
+            for (const v of this.#vehicles){
+                v.progress += v.speed * ctx.dt;
+                if (v.progress <= 1) this.#vehicles[w++] = v;
+            }
+            this.#vehicles.length = w;
+        }
+        if (this.#shore <= 0.001 || chance <= 0) return;
+        this.#timer -= ctx.dt * (0.2 + chance);
+        if (this.#timer > 0) return;
+        this.#timer = this.#rng.float(1400, 4200) / (0.3 + chance);
+        if (this.#vehicles.length < 6) this.#vehicles.push(this.#spawn());
+    }
+    #spawn() {
+        return {
+            progress: 0,
+            speed: this.#rng.float(0.00009, 0.0002),
+            dir: this.#rng.bool() ? 1 : -1,
+            yJit: this.#rng.float(-1, 1),
+            size: this.#rng.float(0.85, 1.35),
+            warm: this.#rng.bool(0.72)
+        };
+    }
+    draw(ctx) {
+        if (this.#vehicles.length === 0 || this.#shore <= 0.001) return;
+        const { out, width, height } = ctx;
+        const waterY = (1 - this.#water) * height;
+        const bandH = this.#shore * height;
+        const roadY = waterY - bandH * 0.45;
+        const carH = Math.max(1.2, bandH * 0.4);
+        const waterH = height - waterY;
+        for (const v of this.#vehicles){
+            const sx = (v.dir > 0 ? -0.05 + v.progress * 1.1 : 1.05 - v.progress * 1.1) * width;
+            const y = roadY + v.yJit * bandH * 0.22;
+            const s = carH * v.size;
+            const head = v.warm ? HEAD_WARM : HEAD_COOL;
+            const headX = sx + v.dir * s * 0.7;
+            const tailX = sx - v.dir * s * 0.7;
+            out.glow(headX, y, s * 2.4, withAlpha(head, 0.5), 0.9);
+            out.circle(headX, y, s * 0.5, head);
+            out.circle(tailX, y, s * 0.42, TAIL);
+            if (waterH > 0) {
+                const wob = Math.sin(this.#time * 0.0012 + sx * 0.05) * s * 0.7;
+                out.gradient(headX - s * 0.6 + wob, waterY, s * 1.2, waterH * 0.5, [
+                    {
+                        at: 0,
+                        color: withAlpha(head, 0.22)
+                    },
+                    {
+                        at: 1,
+                        color: withAlpha(head, 0)
+                    }
+                ], true);
+            }
+        }
+    }
+}
 function gridFor(rng, width, height, density = 1) {
     const cols = clamp(Math.round(width * 77 * density + rng.float(-1, 1)), 2, 8);
     const rows = clamp(Math.round(height * 46 * density + rng.float(-1, 1)), 1, 30);
@@ -1889,12 +2395,14 @@ const BUILDING_GENERATORS = {
                 "antenna",
                 "flat",
                 "spire",
-                "tank"
+                "tank",
+                "deco"
             ], [
                 4,
                 3,
                 2,
-                1
+                1,
+                2
             ]),
             roofScale: rng.float(0.5, 1),
             cols,
@@ -1922,9 +2430,11 @@ const BUILDING_GENERATORS = {
                 "flat",
                 "tank",
                 "dome",
-                "antenna"
+                "antenna",
+                "barrel"
             ], [
                 4,
+                2,
                 2,
                 2,
                 2
@@ -1946,9 +2456,11 @@ const BUILDING_GENERATORS = {
             roof: rng.weighted([
                 "flat",
                 "antenna",
-                "tank"
+                "tank",
+                "watertower"
             ], [
                 5,
+                2,
                 2,
                 2
             ]),
@@ -2008,9 +2520,11 @@ const BUILDING_GENERATORS = {
             height,
             roof: rng.weighted([
                 "spire",
-                "dome"
+                "dome",
+                "deco"
             ], [
                 3,
+                2,
                 2
             ]),
             roofScale: rng.float(0.7, 1),
@@ -2023,6 +2537,70 @@ const BUILDING_GENERATORS = {
                 2,
                 3
             ])
+        };
+    },
+    tree (rng) {
+        const height = rng.float(0.05, 0.13);
+        const width = height * rng.float(0.7, 1.1);
+        return {
+            kind: "tree",
+            shape: "tree",
+            width,
+            height,
+            roof: "flat",
+            roofScale: 0,
+            cols: 0,
+            rows: 0,
+            setbacks: 0
+        };
+    },
+    barn (rng) {
+        const height = rng.float(0.06, 0.11);
+        const width = height * rng.float(1.6, 2.6);
+        return {
+            kind: "barn",
+            width,
+            height,
+            roof: "pitched",
+            roofScale: rng.float(0.7, 1),
+            cols: rng.int(0, 3),
+            rows: rng.int(0, 2),
+            setbacks: 0
+        };
+    },
+    silo (rng) {
+        const height = rng.float(0.1, 0.18);
+        const width = height * rng.float(0.28, 0.42);
+        return {
+            kind: "silo",
+            width,
+            height,
+            roof: rng.weighted([
+                "dome",
+                "barrel"
+            ], [
+                3,
+                2
+            ]),
+            roofScale: rng.float(0.6, 1),
+            cols: 0,
+            rows: 0,
+            setbacks: 0
+        };
+    },
+    hill (rng) {
+        const height = rng.float(0.05, 0.13);
+        const width = height * rng.float(2.5, 5);
+        return {
+            kind: "hill",
+            shape: "mound",
+            width,
+            height,
+            roof: "flat",
+            roofScale: 0,
+            cols: 0,
+            rows: 0,
+            setbacks: 0
         };
     }
 };
@@ -2177,8 +2755,114 @@ const RULES = {
             3,
             2
         ]
+    },
+    countryside: {
+        kinds: [
+            "tree",
+            "house",
+            "barn",
+            "silo",
+            "hill",
+            null
+        ],
+        kindWeights: [
+            5,
+            2,
+            2,
+            1,
+            2,
+            3
+        ],
+        gap: [
+            0.03,
+            0.1
+        ],
+        run: [
+            4,
+            9
+        ],
+        next: [
+            "countryside",
+            "residential",
+            "park"
+        ],
+        nextWeights: [
+            4,
+            2,
+            2
+        ]
+    },
+    coast: {
+        kinds: [
+            "hill",
+            "tree",
+            "house",
+            null
+        ],
+        kindWeights: [
+            2,
+            2,
+            1,
+            6
+        ],
+        gap: [
+            0.06,
+            0.16
+        ],
+        run: [
+            3,
+            7
+        ],
+        next: [
+            "coast",
+            "countryside",
+            "park"
+        ],
+        nextWeights: [
+            3,
+            2,
+            2
+        ]
     }
 };
+const BIOME_SUCCESSORS = {
+    residential: [
+        [
+            "countryside",
+            4
+        ]
+    ],
+    park: [
+        [
+            "countryside",
+            4
+        ],
+        [
+            "coast",
+            2
+        ]
+    ],
+    countryside: [
+        [
+            "coast",
+            3
+        ]
+    ]
+};
+const URBANISM = {
+    downtown: 1,
+    commercial: 0.72,
+    residential: 0.38,
+    industrial: 0.28,
+    park: 0.12,
+    countryside: 0.18,
+    coast: 0.04
+};
+function biasWeight(weight, level, urbanism, variety) {
+    const diff = Math.abs(level - urbanism);
+    const factor = Math.max(0.02, 1 + variety * 3 * (1 - 2 * diff));
+    return weight * factor;
+}
 class DistrictStream {
     #rng;
     #district;
@@ -2195,10 +2879,9 @@ class DistrictStream {
         const [lo, hi] = RULES[d].run;
         return this.#rng.int(lo, hi);
     }
-    next() {
+    next(urbanism = 0.5, variety = 0) {
         if (this.#remaining <= 0) {
-            const rule = RULES[this.#district];
-            this.#district = this.#rng.weighted(rule.next, rule.nextWeights);
+            this.#district = this.#chooseNext(urbanism, variety);
             this.#remaining = this.#rollRun(this.#district);
         }
         this.#remaining--;
@@ -2209,6 +2892,21 @@ class DistrictStream {
             gap: this.#rollGap(rule),
             district: this.#district
         };
+    }
+    #chooseNext(urbanism, variety) {
+        const rule = RULES[this.#district];
+        if (variety <= 0) return this.#rng.weighted(rule.next, rule.nextWeights);
+        const extra = BIOME_SUCCESSORS[this.#district];
+        const cands = extra ? [
+            ...rule.next,
+            ...extra.map((e)=>e[0])
+        ] : rule.next;
+        const base = extra ? [
+            ...rule.nextWeights,
+            ...extra.map((e)=>e[1])
+        ] : rule.nextWeights;
+        const weights = cands.map((d, i)=>biasWeight(base[i], URBANISM[d], urbanism, variety));
+        return this.#rng.weighted(cands, weights);
     }
     #rollGap(rule) {
         const r1 = this.#rng.next();
@@ -2225,7 +2923,11 @@ const SUBSTITUTE = {
     tower: "midrise",
     midrise: "house",
     house: "house",
-    factory: "midrise"
+    factory: "midrise",
+    tree: "tree",
+    barn: "barn",
+    silo: "silo",
+    hill: "tree"
 };
 class LayerSpawner {
     layer;
@@ -2240,6 +2942,10 @@ class LayerSpawner {
     #left = 0;
     #init = false;
     #exclude;
+    #biomeField;
+    #biomeShift = 0;
+    #biomeScale = 5;
+    #biomeVariety = 0;
     constructor(layer, rng, opts){
         this.layer = layer;
         this.depth = opts.depth;
@@ -2247,6 +2953,7 @@ class LayerSpawner {
         this.#scale = opts.scale;
         this.#rng = rng;
         this.#exclude = new Set(opts.excludeKinds ?? []);
+        this.#biomeField = opts.biomeField;
         this.#streamR = new DistrictStream(rng.fork("right"));
         this.#streamL = new DistrictStream(rng.fork("left"));
     }
@@ -2265,6 +2972,9 @@ class LayerSpawner {
             this.#init = true;
         }
         const litChance = env.config.windowLightChance;
+        this.#biomeShift = camera.scroll * (1 - camera.parallaxAt(this.depth));
+        this.#biomeScale = env.config.biomeScale;
+        this.#biomeVariety = env.config.biomeVariety;
         let guard = 0;
         while(camera.project(this.#right, this.depth) < width + 340 && guard++ < 400){
             this.#placeRight(litChance);
@@ -2281,8 +2991,15 @@ class LayerSpawner {
     #obtain() {
         return this.#pool.pop() ?? new Building(this.depth, this.#rng.fork(this.layer.entities.length + 1));
     }
+    #nextSlot(stream, edge) {
+        if (this.#biomeField && this.#biomeVariety > 0) {
+            const urbanism = this.#biomeField.urbanismAt(edge + this.#biomeShift, this.#biomeScale);
+            return stream.next(urbanism, this.#biomeVariety);
+        }
+        return stream.next();
+    }
     #placeRight(litChance) {
-        const slot = this.#streamR.next();
+        const slot = this.#nextSlot(this.#streamR, this.#right);
         const gap = slot.gap * this.#scale;
         if (slot.kind === null) {
             this.#right += gap;
@@ -2296,7 +3013,7 @@ class LayerSpawner {
         this.#right = leftEdge + b.bounds.width;
     }
     #placeLeft(litChance) {
-        const slot = this.#streamL.next();
+        const slot = this.#nextSlot(this.#streamL, this.#left);
         const gap = slot.gap * this.#scale;
         if (slot.kind === null) {
             this.#left -= gap;
@@ -2345,9 +3062,21 @@ class LayerSpawner {
         this.#right = hi;
     }
 }
+class BiomeField {
+    #noise;
+    constructor(seed){
+        this.#noise = createNoise1D((seed ^ 0xb10e) >>> 0, 2);
+    }
+    urbanismAt(worldX, scale) {
+        const s = scale > 0 ? scale : 1;
+        const n = this.#noise.at(worldX / s);
+        return clamp(0.5 + (n - 0.5) * 1.4, 0, 1);
+    }
+}
 function buildSkyline(world, config, rng) {
     const sky = new Layer("sky", 0);
     sky.add(new SkyBackdrop());
+    sky.add(new Aurora(rng.fork("aurora")));
     sky.add(new Starfield(rng.fork("stars")));
     sky.add(new Moon(rng.fork("moon")));
     sky.add(new FlyerDirector(rng.fork("flyer")));
@@ -2355,6 +3084,7 @@ function buildSkyline(world, config, rng) {
     world.addLayer(sky);
     const n = Math.max(1, Math.round(config.parallaxLayers));
     const spawners = [];
+    const biomeField = new BiomeField(rng.fork("biome").seed);
     for(let i = 0; i < n; i++){
         const f = n === 1 ? 1 : i / (n - 1);
         const depth = lerp(0.6, 0.92, f);
@@ -2363,13 +3093,15 @@ function buildSkyline(world, config, rng) {
         const layer = new Layer(`buildings-${i}`, depth);
         world.addLayer(layer);
         const isFront = i === n - 1;
+        const exclude = [];
+        if (isFront) exclude.push("skyscraper");
+        if (f > 0.4) exclude.push("hill");
         spawners.push(new LayerSpawner(layer, rng.fork(`layer-${i}`), {
             depth,
             shoreOffset,
             scale,
-            excludeKinds: isFront ? [
-                "skyscraper"
-            ] : undefined
+            excludeKinds: exclude.length > 0 ? exclude : undefined,
+            biomeField
         }));
     }
     const birds = new Layer("birds", 0.94);
@@ -2378,9 +3110,15 @@ function buildSkyline(world, config, rng) {
     const water = new Layer("water", 1);
     water.add(new Water(rng.fork("water")));
     world.addLayer(water);
+    const fog = new Layer("fog", 1.05);
+    fog.add(new GroundFog());
+    world.addLayer(fog);
     const shore = new Layer("shore", 1.1);
     shore.add(new Shore(rng.fork("shore")));
     world.addLayer(shore);
+    const traffic = new Layer("traffic", 1.12);
+    traffic.add(new TrafficDirector(rng.fork("traffic")));
+    world.addLayer(traffic);
     return {
         spawners
     };
@@ -2503,6 +3241,8 @@ class CanvasRenderer {
     #dpr = 1;
     #width = 0;
     #height = 0;
+    #vignette = 0;
+    #grainPattern = null;
     constructor(canvas){
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("CanvasRenderer: 2D context unavailable");
@@ -2518,6 +3258,9 @@ class CanvasRenderer {
         this.#canvas.style.width = `${width}px`;
         this.#canvas.style.height = `${height}px`;
     }
+    setPost(opts) {
+        if (opts.vignette !== undefined) this.#vignette = Math.max(0, opts.vignette);
+    }
     render(list) {
         const ctx = this.#ctx;
         ctx.setTransform(this.#dpr, 0, 0, this.#dpr, 0, list.offsetY * this.#dpr);
@@ -2526,6 +3269,30 @@ class CanvasRenderer {
         }
         for (const cmd of list.commands)this.#draw(ctx, cmd);
         ctx.globalCompositeOperation = "source-over";
+        this.#applyPost(ctx);
+    }
+    #applyPost(ctx) {
+        const vig = this.#vignette;
+        if (vig <= 0) return;
+        const w = this.#canvas.width;
+        const h = this.#canvas.height;
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const cx = w / 2;
+        const cy = h / 2;
+        const g = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.4, cx, cy, Math.hypot(w, h) * 0.6);
+        g.addColorStop(0, "rgba(0,0,0,0)");
+        g.addColorStop(1, `rgba(0,0,0,${(vig * 0.9).toFixed(3)})`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        const grain = this.#grainPattern ?? (this.#grainPattern = buildGrain(ctx));
+        if (grain) {
+            ctx.globalAlpha = vig * 0.06;
+            ctx.fillStyle = grain;
+            ctx.fillRect(0, 0, w, h);
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
     }
     #draw(ctx, cmd) {
         switch(cmd.kind){
@@ -2592,6 +3359,23 @@ class CanvasRenderer {
 }
 function clamp01(n) {
     return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+function buildGrain(ctx) {
+    const size = 64;
+    const tile = document.createElement("canvas");
+    tile.width = size;
+    tile.height = size;
+    const tctx = tile.getContext("2d");
+    if (!tctx) return null;
+    const img = tctx.createImageData(64, 64);
+    const d = img.data;
+    for(let i = 0; i < d.length; i += 4){
+        const v = Math.random() * 255 | 0;
+        d[i] = d[i + 1] = d[i + 2] = v;
+        d[i + 3] = 255;
+    }
+    tctx.putImageData(img, 0, 0);
+    return ctx.createPattern(tile, "repeat");
 }
 class AmbientAudio {
     #bus;
@@ -2810,6 +3594,9 @@ function mountCityscape(opts = {}) {
     }
     const scene = createCityscape(initial);
     const canvasRenderer = new CanvasRenderer(canvas);
+    canvasRenderer.setPost({
+        vignette: scene.config.vignette
+    });
     let renderer = canvasRenderer;
     const audio = new AmbientAudio(scene.events);
     audio.setVolume(scene.config.audioVolume);
@@ -2876,6 +3663,11 @@ function mountCityscape(opts = {}) {
     const applyRuntime = (patch)=>{
         if ("audioEnabled" in patch) audio.setEnabled(!!patch.audioEnabled);
         if ("audioVolume" in patch) audio.setVolume(scene.config.audioVolume);
+        if ("vignette" in patch) {
+            canvasRenderer.setPost({
+                vignette: scene.config.vignette
+            });
+        }
         if (opts.writeHash) writeHash();
     };
     const update = (patch)=>{
@@ -3543,7 +4335,8 @@ function sampleStops(stops, t) {
     return lastStop.color;
 }
 const handle = mountCityscape({
-    writeHash: true
+    writeHash: true,
+    randomizeSeed: false
 });
 const canvasRenderer = handle.renderer;
 const toast = document.createElement("div");
@@ -3598,17 +4391,37 @@ const asciiBtn = document.createElement("button");
 asciiBtn.className = "cs-bar-btn";
 asciiBtn.textContent = "ASCII view";
 asciiBtn.addEventListener("click", ()=>setAscii(!asciiOn));
+const fsBtn = document.createElement("button");
+fsBtn.className = "cs-bar-btn";
+fsBtn.textContent = "Fullscreen";
+fsBtn.addEventListener("click", ()=>setImmersive(true));
 const hint = document.createElement("span");
 hint.className = "cs-hint";
-hint.textContent = "move = parallax · wheel = speed · click = flash windows · keys: a / h";
-bar.append(asciiBtn, hint);
+hint.textContent = "move = parallax · wheel = speed · click = flash · keys: a / h / f";
+bar.append(asciiBtn, fsBtn, hint);
 document.body.append(bar);
+const controls = [
+    panel.el,
+    bar
+];
+let immersive = false;
+function setImmersive(on) {
+    if (on === immersive) return;
+    immersive = on;
+    for (const el of controls)el.style.display = on ? "none" : "";
+    if (on) document.documentElement.requestFullscreen?.().catch(()=>{});
+    else if (document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
+}
+document.addEventListener("fullscreenchange", ()=>{
+    if (!document.fullscreenElement && immersive) setImmersive(false);
+});
 addEventListener("keydown", (e)=>{
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
         return;
     }
     if (e.key === "a") setAscii(!asciiOn);
     else if (e.key === "h") panel.toggle();
+    else if (e.key === "f") setImmersive(!immersive);
 });
 Object.assign(globalThis, {
     handle,

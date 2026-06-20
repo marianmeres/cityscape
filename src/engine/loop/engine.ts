@@ -91,8 +91,20 @@ export class Engine {
 	#frame = (time: number): void => {
 		if (!this.#running) return;
 		if (this.#last == null) this.#last = time;
-		const delta = clamp(time - this.#last, 0, this.#maxFrameDelta);
+		const raw = time - this.#last;
 		this.#last = time;
+		// A gap far larger than any real frame means we were backgrounded or occluded — a hidden
+		// tab, or an alt-tabbed / covered window (cases that don't always fire `visibilitychange`,
+		// so the loop kept running with throttled frames). Resume cleanly: repaint the current
+		// state and advance the simulation by *nothing*, so there's no catch-up jump or stutter.
+		// Normal frames fall through to the fixed-step advance.
+		if (raw > this.#maxFrameDelta) {
+			const { alpha } = this.stepper.advance(0, this.#opts.step);
+			this.#opts.render(alpha);
+			this.#schedule();
+			return;
+		}
+		const delta = clamp(raw, 0, this.#maxFrameDelta);
 		const { alpha } = this.stepper.advance(delta, this.#opts.step);
 		this.#opts.render(alpha);
 		this.#schedule();

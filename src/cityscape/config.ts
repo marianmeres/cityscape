@@ -76,11 +76,16 @@ export interface CityscapeConfig {
 	spawnDensity: number;
 	waterLevel: number;
 	shoreHeight: number;
+	buildingShading: number;
+	neon: number;
+	biomeVariety: number;
+	biomeScale: number;
 	// Mood
 	palette: string;
 	moodCycleSeconds: number;
 	darkness: number;
 	colorTemperature: number;
+	vignette: number;
 	// Lights
 	windowLightChance: number;
 	windowToggleRate: number;
@@ -90,6 +95,9 @@ export interface CityscapeConfig {
 	cloudChance: number;
 	birdChance: number;
 	flyerChance: number;
+	trafficChance: number;
+	fog: number;
+	aurora: number;
 	// Audio
 	audioEnabled: boolean;
 	audioVolume: number;
@@ -108,7 +116,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 120,
 		step: 1,
-		default: 20,
+		default: 120,
 		unit: "u/s",
 		help: "Scroll speed. 0 holds the city still.",
 	},
@@ -142,7 +150,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: -0.25,
 		max: 0.25,
 		step: 0.01,
-		default: 0.12,
+		default: -0.08,
 		help: "Pan the camera up (more sky) or down (more water).",
 	},
 	{
@@ -170,7 +178,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		label: "Seed",
 		group: "World",
 		type: "seed",
-		default: "arj213f",
+		default: "hey ho lets go",
 		help: "Same seed + settings reproduces the exact city.",
 	},
 	{
@@ -192,7 +200,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0.4,
 		max: 1.8,
 		step: 0.05,
-		default: 0.45,
+		default: 0.5,
 		help: "How tightly buildings pack in.",
 	},
 	{
@@ -203,7 +211,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 0.5,
 		step: 0.02,
-		default: 0.33,
+		default: 0.1,
 		help: "Fraction of the bottom that is calm water (sea/river). 0 = no water.",
 	},
 	{
@@ -217,13 +225,60 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		default: 0.025,
 		help: "Lit shore/embankment band between the city and the water.",
 	},
+	{
+		key: "buildingShading",
+		label: "Facade light",
+		group: "World",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.5,
+		help:
+			"Soft top-light on near buildings so silhouettes read as volumes. 0 = flat.",
+	},
+	{
+		key: "neon",
+		label: "Neon signs",
+		group: "World",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.4,
+		help: "Rare hue-cycling rooftop signs on near city buildings. 0 = none.",
+	},
+	{
+		key: "biomeVariety",
+		label: "Biome journey",
+		group: "World",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.3,
+		help:
+			"Drift between dense city and open outskirts as you scroll. 0 = uniform city.",
+	},
+	{
+		key: "biomeScale",
+		label: "Region length",
+		group: "World",
+		type: "range",
+		min: 1,
+		max: 12,
+		step: 0.5,
+		default: 4.5,
+		help:
+			"How long each city/outskirts stretch lasts (world units). Higher = longer.",
+	},
 	// ── Mood ───────────────────────────────────────────────────────────
 	{
 		key: "palette",
 		label: "Palette",
 		group: "Mood",
 		type: "select",
-		default: "navy",
+		default: "dawn",
 		options: PALETTE_NAMES.map((n) => ({ value: n, label: PALETTES[n].label })),
 	},
 	{
@@ -246,7 +301,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.02,
-		default: 0.42,
+		default: 0.76,
 	},
 	{
 		key: "colorTemperature",
@@ -256,8 +311,19 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.02,
-		default: 0.5,
+		default: 0.48,
 		help: "Bias the cycle toward warm (0) or cool (1).",
+	},
+	{
+		key: "vignette",
+		label: "Vignette",
+		group: "Mood",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 1,
+		help: "Darken the frame toward the corners (+ faint grain). 0 = off.",
 	},
 	// ── Lights ─────────────────────────────────────────────────────────
 	{
@@ -278,7 +344,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.02,
-		default: 0,
+		default: 0.48,
 		help: "How often windows switch. Low stays calm.",
 	},
 	// ── Sky ────────────────────────────────────────────────────────────
@@ -290,7 +356,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.5,
+		default: 0.1,
 	},
 	{
 		key: "starDensity",
@@ -300,7 +366,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.85,
+		default: 1,
 	},
 	{
 		key: "cloudChance",
@@ -310,7 +376,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.8,
+		default: 0.9,
 	},
 	{
 		key: "birdChance",
@@ -320,7 +386,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.8,
+		default: 0.95,
 	},
 	{
 		key: "flyerChance",
@@ -330,8 +396,41 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.9,
+		default: 0.95,
 		help: "Rare crossers: planes, satellites, shooting stars.",
+	},
+	{
+		key: "trafficChance",
+		label: "Traffic",
+		group: "Sky",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.1,
+		help: "Sparse headlights crossing the waterfront. Needs a shore to drive on.",
+	},
+	{
+		key: "fog",
+		label: "Ground fog",
+		group: "Sky",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0,
+		help: "Low mist hazing the base of the skyline. 0 = clear.",
+	},
+	{
+		key: "aurora",
+		label: "Aurora",
+		group: "Sky",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0,
+		help: "Faint sky shimmer (navy & vaporwave palettes only). 0 = off.",
 	},
 	// ── Audio ──────────────────────────────────────────────────────────
 	{

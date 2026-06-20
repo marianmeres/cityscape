@@ -13,7 +13,14 @@
  */
 
 import type { Rng } from "../../engine/math/rng.ts";
-import { type Color, fadeAlpha, mix, rgb, withAlpha } from "../../engine/math/color.ts";
+import {
+	type Color,
+	fadeAlpha,
+	hsl,
+	mix,
+	rgb,
+	withAlpha,
+} from "../../engine/math/color.ts";
 import type { DisplayListBuilder } from "../../engine/render/draw-command.ts";
 import type { CityscapeConfig } from "../config.ts";
 
@@ -42,6 +49,11 @@ export class WindowGrid {
 	#toggle = 0;
 	/** Per-building offset so two buildings don't share the same window-variation pattern. */
 	#salt = 0;
+	/** A stable always-lit "office working late" row (`-1` = none). */
+	#litFloor = -1;
+	/** A stable always-on illuminated sign cell (`-1` = none) and its hue. */
+	#signIdx = -1;
+	#signHue = 0;
 
 	constructor(cols: number, rows: number, opts: {
 		padX?: number;
@@ -63,6 +75,20 @@ export class WindowGrid {
 		}
 		this.#toggle = rng.float(400, 2600);
 		this.#salt = Math.floor(rng.next() * 9973);
+		// Stable "character" overlays, drawn on top of the occupancy model so the calm toggling and
+		// the lit-fraction target stay untouched: a rare fully-lit floor (an office working late)
+		// and a rare always-on illuminated sign in a saturated hue.
+		this.#litFloor = this.rows >= 4 && rng.next() < 0.2
+			? rng.int(1, this.rows - 2)
+			: -1;
+		if (this.cols > 0 && this.rows > 0 && rng.next() < 0.12) {
+			const col = rng.int(0, this.cols - 1);
+			const row = rng.int(0, Math.max(0, Math.ceil(this.rows / 2) - 1));
+			this.#signIdx = row * this.cols + col;
+			this.#signHue = rng.float(0, 360);
+		} else {
+			this.#signIdx = -1;
+		}
 	}
 
 	/** Advance the calm toggling. `dt` ms; uses the building's own `rng` for determinism. */
@@ -102,34 +128,55 @@ export class WindowGrid {
 		const offX = (cellW - winW) / 2;
 		const offY = (cellH - winH) / 2;
 		const glow = depth > 0.55 && winW > 1.4;
+		const detail = winW > 1.6; // signs/blinds only read once cells are big enough
 		// How far an individual window may stray in tint from the mood's window colour.
 		const tintRange = 0.28;
 
 		for (let r = 0; r < this.rows; r++) {
 			for (let c = 0; c < this.cols; c++) {
 				const idx = r * this.cols + c;
-				if (this.lit[idx] === 0) continue;
+				const isSign = idx === this.#signIdx;
+				// Lit if occupied, on the always-lit floor, or the always-on sign.
+				if (this.lit[idx] === 0 && r !== this.#litFloor && !isSign) continue;
 				const wx = ix + c * cellW + offX;
-				const wy = iy + r * cellH + offY;
+				let wy = iy + r * cellH + offY;
+				let wh = winH;
 
-				// Stable per-window character: a tint toward warm/cool and a brightness.
-				const hTint = cellHash(idx + this.#salt);
-				const hBright = cellHash(idx * 2 + this.#salt + 7);
-				const toward = hTint < 0.5 ? WARM_TINT : COOL_TINT;
-				const tinted = mix(color, toward, Math.abs(hTint - 0.5) * 2 * tintRange);
-				const bright = 0.6 + hBright * 0.4;
-				const cell = withAlpha(tinted, color.a * bright);
+				let cell: Color;
+				if (isSign && detail) {
+					// A saturated, always-on illuminated sign.
+					cell = withAlpha(hsl(this.#signHue, 0.55, 0.62), color.a);
+				} else {
+					// Stable per-window character: a tint toward warm/cool and a brightness.
+					const hTint = cellHash(idx + this.#salt);
+					const hBright = cellHash(idx * 2 + this.#salt + 7);
+					let toward = hTint < 0.5 ? WARM_TINT : COOL_TINT;
+					let amt = Math.abs(hTint - 0.5) * 2 * tintRange;
+					let bright = 0.6 + hBright * 0.4;
+					// Penthouse: the top floors of a tall grid read warmer and a touch brighter.
+					if (this.rows >= 4 && r <= 1) {
+						toward = WARM_TINT;
+						amt = Math.max(amt, tintRange * 0.8);
+						bright = Math.min(1, bright + 0.15);
+					}
+					cell = withAlpha(mix(color, toward, amt), color.a * bright);
+					// Blinds: some windows are half-shuttered (a lit strip at the bottom).
+					if (detail && cellHash(idx * 3 + this.#salt + 11) < 0.22) {
+						wh = winH * 0.55;
+						wy += winH - wh;
+					}
+				}
 
 				if (glow) {
 					out.glow(
 						wx + winW / 2,
-						wy + winH / 2,
+						wy + wh / 2,
 						winW * 1.7,
 						fadeAlpha(cell, 0.45),
 						0.55,
 					);
 				}
-				out.rect(wx, wy, winW, winH, cell);
+				out.rect(wx, wy, winW, wh, cell);
 			}
 		}
 	}

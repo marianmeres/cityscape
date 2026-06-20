@@ -26,7 +26,7 @@ Deno.test("normalizeConfig clamps ranges", () => {
 
 Deno.test("normalizeConfig falls back on invalid select / direction", () => {
 	const c = normalizeConfig({ palette: "nonsense", cameraDirection: "sideways" });
-	assertEquals(c.palette, "navy");
+	assertEquals(c.palette, "dawn"); // the default palette
 	assertEquals(c.cameraDirection, "right");
 });
 
