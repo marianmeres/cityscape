@@ -7,9 +7,10 @@
  *
  *  - `@marianmeres/cityscape/engine`        — the generic, headless animation engine
  *  - `@marianmeres/cityscape/cityscape`     — the city domain (config, palettes, mood, entities)
- *  - `@marianmeres/cityscape/render/canvas` — the Canvas2D renderer
- *  - `@marianmeres/cityscape/render/ascii`  — the ASCII renderer (proof of the seam)
- *  - `@marianmeres/cityscape/ui`            — the floating control panel
+ *  - `@marianmeres/cityscape/render/canvas`   — the Canvas2D renderer
+ *  - `@marianmeres/cityscape/render/ascii`    — the ASCII renderer (proof of the seam)
+ *  - `@marianmeres/cityscape/render/pixelart` — the pixel-art renderer (dithered, palette-quantised)
+ *  - `@marianmeres/cityscape/ui`              — the floating control panel
  *
  * @example One-liner full-page background
  * ```ts
@@ -47,6 +48,10 @@ export {
 // Renderers + the seam types
 export { CanvasRenderer } from "./render/canvas/canvas-renderer.ts";
 export { type AsciiOptions, AsciiRenderer } from "./render/ascii/ascii-renderer.ts";
+export {
+	type PixelArtOptions,
+	PixelArtRenderer,
+} from "./render/pixelart/pixelart-renderer.ts";
 export type { Renderer } from "./engine/render/renderer.ts";
 export type { DisplayList, DrawCommand } from "./engine/render/draw-command.ts";
 

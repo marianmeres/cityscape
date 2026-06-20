@@ -108,6 +108,31 @@ function fromOklab(o: Oklab, alpha: number): Color {
 	};
 }
 
+/** Oklab coordinates: perceptual lightness `L` and the `a`/`b` chroma axes. */
+export type OklabColor = Oklab;
+
+/**
+ * Convert a {@link Color} to {@link OklabColor} (perceptual) coordinates. Exposed for palette
+ * extraction and colour quantisation, where nearest-colour matching must be perceptual to look
+ * right; alpha is dropped.
+ */
+export function oklab(c: Color): OklabColor {
+	return toOklab(c);
+}
+
+/**
+ * Squared perceptual distance between two colours in Oklab space (alpha ignored). Squared because
+ * callers only ever compare distances — skipping the `sqrt` keeps quantisation loops cheap.
+ */
+export function oklabDistanceSq(a: Color, b: Color): number {
+	const x = toOklab(a);
+	const y = toOklab(b);
+	const dL = x.L - y.L;
+	const da = x.a - y.a;
+	const db = x.b - y.b;
+	return dL * dL + da * da + db * db;
+}
+
 /**
  * Perceptually mix `a`→`b` by `t` (`0`=a, `1`=b) in Oklab space. Alpha is lerped linearly.
  * This is the workhorse for the mood cycle and palette interpolation.

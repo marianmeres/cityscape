@@ -1,7 +1,8 @@
 # @marianmeres/cityscape — Agent Guide
 
 Procedurally-generated parallax night-city-skyline animation. **The architecture is the point**:
-a pure, DOM-free, deterministic simulation core behind a swappable renderer seam (Canvas + ASCII).
+a pure, DOM-free, deterministic simulation core behind a swappable renderer seam (Canvas + ASCII +
+PixelArt).
 
 > This codebase was authored end-to-end by an AI agent from a high-level brief; it's a study piece.
 > Keep that bar: clean, well-commented, tested, idiomatic.
@@ -31,7 +32,9 @@ src/
     buildings/{kinds,building,window-grid}.ts
     sky/{backdrop,aurora,starfield,moon,cloud,bird,flyer,water,shore,fog,traffic}.ts
     generation/{biome,district,spawner,skyline}.ts
-  render/canvas/  ⮕ "./render/canvas"   · render/ascii/  ⮕ "./render/ascii"
+  engine/render/pixel/   pure pixel-art math (Bayer dither · median-cut palette · Oklab LUT), tested
+  render/shared/draw2d.ts  per-DrawCommand Canvas2D rasteriser (shared by Canvas + PixelArt)
+  render/canvas/  ⮕ "./render/canvas"  · render/ascii/  ⮕ "./render/ascii"  · render/pixelart/  ⮕ "./render/pixelart"
   runtime/mount.ts   audio/ambient-audio.ts   ui/panel.ts  ⮕ "./ui"   (the only DOM code)
 tests/                 DOM-free unit suite (mirrors src/ modules)
 example/               full-page demo (index.html + main.ts + generated theme CSS)
@@ -46,7 +49,9 @@ docs/SPEC.md           design & architecture (read this first)
    `runtime`, `audio`, `ui`.
 2. **The renderer seam.** Entities emit `DrawCommand`s into a `DisplayList`; a `Renderer` consumes
    it. Never reach for a canvas inside the simulation. New visual primitive → add to the
-   `DrawCommand` union and handle it in **both** renderers.
+   `DrawCommand` union and handle it in the shared `render/shared/draw2d.ts` rasteriser (covers
+   **Canvas + PixelArt**) **and** the `AsciiRenderer`. The pixel-art look is a post pass over the
+   shared raster, so it needs no per-primitive code of its own.
 3. **Deterministic.** Everything derives from `config.seed` via `createRng` + `fork`. No
    `Math.random()` / `Date.now()` in `engine/` or `cityscape/` (allowed in `runtime/audio/ui`).
    Entities hold their own forked rng so update order can't change output.

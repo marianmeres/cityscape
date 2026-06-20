@@ -7,6 +7,7 @@
     "./cityscape": "./src/cityscape/mod.ts",
     "./render/canvas": "./src/render/canvas/mod.ts",
     "./render/ascii": "./src/render/ascii/mod.ts",
+    "./render/pixelart": "./src/render/pixelart/mod.ts",
     "./ui": "./src/ui/mod.ts"
   },
   "compilerOptions": {

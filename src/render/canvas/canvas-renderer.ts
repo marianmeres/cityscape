@@ -9,9 +9,9 @@
  * @module
  */
 
-import { toCss } from "../../engine/math/color.ts";
-import type { DisplayList, DrawCommand } from "../../engine/render/draw-command.ts";
+import type { DisplayList } from "../../engine/render/draw-command.ts";
 import type { Renderer } from "../../engine/render/renderer.ts";
+import { drawCommand } from "../shared/draw2d.ts";
 
 /** A {@link Renderer} that paints onto a Canvas 2D context. */
 export class CanvasRenderer implements Renderer {
@@ -60,7 +60,7 @@ export class CanvasRenderer implements Renderer {
 		if (list.commands.length === 0 || list.commands[0].kind !== "gradient") {
 			ctx.clearRect(0, -list.offsetY, this.#width, this.#height);
 		}
-		for (const cmd of list.commands) this.#draw(ctx, cmd);
+		for (const cmd of list.commands) drawCommand(ctx, cmd);
 		ctx.globalCompositeOperation = "source-over";
 		this.#applyPost(ctx);
 	}
@@ -97,72 +97,6 @@ export class CanvasRenderer implements Renderer {
 		}
 		ctx.restore();
 	}
-
-	#draw(ctx: CanvasRenderingContext2D, cmd: DrawCommand): void {
-		switch (cmd.kind) {
-			case "rect":
-				ctx.fillStyle = toCss(cmd.color);
-				ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
-				return;
-			case "polygon": {
-				const p = cmd.points;
-				if (p.length < 6) return;
-				ctx.fillStyle = toCss(cmd.color);
-				ctx.beginPath();
-				ctx.moveTo(p[0], p[1]);
-				for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i], p[i + 1]);
-				ctx.closePath();
-				ctx.fill();
-				return;
-			}
-			case "circle":
-				ctx.fillStyle = toCss(cmd.color);
-				ctx.beginPath();
-				ctx.arc(cmd.x, cmd.y, Math.max(0, cmd.r), 0, Math.PI * 2);
-				ctx.fill();
-				return;
-			case "gradient": {
-				const g = cmd.vertical
-					? ctx.createLinearGradient(cmd.x, cmd.y, cmd.x, cmd.y + cmd.h)
-					: ctx.createLinearGradient(cmd.x, cmd.y, cmd.x + cmd.w, cmd.y);
-				for (const s of cmd.stops) g.addColorStop(clamp01(s.at), toCss(s.color));
-				ctx.fillStyle = g;
-				ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
-				return;
-			}
-			case "line":
-				ctx.strokeStyle = toCss(cmd.color);
-				ctx.lineWidth = cmd.width;
-				ctx.lineCap = "round";
-				ctx.beginPath();
-				ctx.moveTo(cmd.x1, cmd.y1);
-				ctx.lineTo(cmd.x2, cmd.y2);
-				ctx.stroke();
-				return;
-			case "glow": {
-				const r = Math.max(0.5, cmd.r);
-				const g = ctx.createRadialGradient(cmd.x, cmd.y, 0, cmd.x, cmd.y, r);
-				const c = cmd.color;
-				g.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${c.a * cmd.intensity})`);
-				g.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
-				ctx.globalCompositeOperation = "lighter";
-				ctx.fillStyle = g;
-				ctx.fillRect(cmd.x - r, cmd.y - r, r * 2, r * 2);
-				ctx.globalCompositeOperation = "source-over";
-				return;
-			}
-			case "text":
-				ctx.fillStyle = toCss(cmd.color);
-				ctx.font = `${cmd.size}px ui-monospace, monospace`;
-				ctx.textBaseline = "top";
-				ctx.fillText(cmd.text, cmd.x, cmd.y);
-				return;
-		}
-	}
-}
-
-function clamp01(n: number): number {
-	return n < 0 ? 0 : n > 1 ? 1 : n;
 }
 
 /** A small tiling noise pattern for film grain. Renderer-local, so `Math.random` is fine here. */

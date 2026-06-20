@@ -15,21 +15,22 @@ PROGRESS lives in docs/PROGRESS.md.
 >
 > **The real deliverable is the architecture.** The animation is the demo that proves it. The
 > single hard constraint everything else serves: a clean seam between a **pure, DOM-free
-> simulation core** (fully unit-testable) and a **swappable renderer**. We ship a Canvas2D
-> renderer *and* an ASCII renderer from one display-list to prove the seam is real.
+> simulation core** (fully unit-testable) and a **swappable renderer**. We ship three renderers
+> from one display-list to prove the seam is real: a Canvas2D renderer, an ASCII renderer, and a
+> pixel-art renderer (low-res + palette-quantised + ordered-dithered).
 
 ## 1. Decisions (locked)
 
-| Area | Decision |
-|------|----------|
-| Visual north star | Calm deep-navy night **default**, built as a **swappable palette system** (vaporwave / ink / dawn drop in via config). One global "mood phase" drives sky + tints + window warmth together. |
-| Renderer seam | Entities emit **renderer-agnostic draw commands** (a display list). Ship **`CanvasRenderer`** (Canvas2D) **+ `AsciiRenderer`** (char grid) to prove swappability. |
-| Audio | **WebAudio-synthesised** ambient (drone + sparse stochastic horn/wind). **Muted by default.** No audio assets. The *decision* to emit a sound is part of the pure sim (an event); synthesis is a browser adapter. |
-| Interaction | **Passive by default** (good as a page background) + **optional light interaction** (pointer parallax, wheel scrubs speed, click toggles a window). Input is a decoupled, disable-able module. |
-| Module boundary | **Generic headless engine** underneath + **cityscape content** on top. Both exposed via **JSR subpath exports** so the engine is independently reusable. |
-| Determinism | Fully **seeded**. `seed + config` reproduces the exact city. Enables unit tests and shareable permalinks. |
-| Tests | **Thorough core unit tests** — every pure unit is Deno-testable with no DOM. |
-| Tech | Deno + plain TS, no frameworks. Panel built with **@marianmeres/vanilla** (reactive core) + **@marianmeres/design-tokens** (themed CSS). Bundled with **@marianmeres/deno-build**. |
+| Area              | Decision                                                                                                                                                                                                          |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visual north star | Calm deep-navy night **default**, built as a **swappable palette system** (vaporwave / ink / dawn drop in via config). One global "mood phase" drives sky + tints + window warmth together.                       |
+| Renderer seam     | Entities emit **renderer-agnostic draw commands** (a display list). Ship **`CanvasRenderer`** (Canvas2D) **+ `AsciiRenderer`** (char grid) **+ `PixelArtRenderer`** (low-res, dithered) to prove swappability.    |
+| Audio             | **WebAudio-synthesised** ambient (drone + sparse stochastic horn/wind). **Muted by default.** No audio assets. The _decision_ to emit a sound is part of the pure sim (an event); synthesis is a browser adapter. |
+| Interaction       | **Passive by default** (good as a page background) + **optional light interaction** (pointer parallax, wheel scrubs speed, click toggles a window). Input is a decoupled, disable-able module.                    |
+| Module boundary   | **Generic headless engine** underneath + **cityscape content** on top. Both exposed via **JSR subpath exports** so the engine is independently reusable.                                                          |
+| Determinism       | Fully **seeded**. `seed + config` reproduces the exact city. Enables unit tests and shareable permalinks.                                                                                                         |
+| Tests             | **Thorough core unit tests** — every pure unit is Deno-testable with no DOM.                                                                                                                                      |
+| Tech              | Deno + plain TS, no frameworks. Panel built with **@marianmeres/vanilla** (reactive core) + **@marianmeres/design-tokens** (themed CSS). Bundled with **@marianmeres/deno-build**.                                |
 
 ## 2. Layering (the architecture)
 
@@ -40,7 +41,7 @@ inward only.** The two innermost layers are 100% DOM-free and unit-tested.
 ┌─ runtime / ui / audio (browser glue) ──────────────────────────────┐
 │  mount full-page canvas · control panel (vanilla) · WebAudio synth  │
 │  ┌─ renderers (target adapters) ─────────────────────────────────┐  │
-│  │  CanvasRenderer (Canvas2D)   ·   AsciiRenderer (char grid)     │  │
+│  │  CanvasRenderer · AsciiRenderer · PixelArtRenderer (dithered)  │  │
 │  │  ┌─ cityscape (domain content) ─── DOM-FREE, TESTED ────────┐  │  │
 │  │  │  config · palette · mood · buildings · sky · generation  │  │  │
 │  │  │  ┌─ engine (generic) ──────── DOM-FREE, TESTED ───────┐  │  │  │
@@ -55,15 +56,18 @@ inward only.** The two innermost layers are 100% DOM-free and unit-tested.
 **The seam.** The engine defines a `Renderer` interface and a `DrawCommand` union (rect, polygon,
 circle, gradient, line, glow, text). The simulation `collect()`s a `DisplayList` of draw commands;
 a renderer consumes it. The simulation never imports a renderer, a canvas, or the DOM. Swapping
-Canvas→ASCII is swapping the consumer of the same list. This is what makes the architecture claim
-real rather than aspirational — and the ASCII renderer, being string-producing, is itself unit-tested.
+Canvas→ASCII→PixelArt is swapping the consumer of the same list. This is what makes the architecture
+claim real rather than aspirational — and the ASCII renderer, being string-producing, is itself
+unit-tested. The pixel-art renderer goes further: its hard parts (palette extraction, the
+quantisation LUT, the Bayer dither) are pure, DOM-free helpers in `engine/render/pixel`, so they too
+are unit-tested — only the thin canvas glue (offscreen buffer + nearest-neighbour upscale) is browser-only.
 
 ## 3. Module map
 
 `src/` (subpath export roots marked **⮕**):
 
 ```
-mod.ts                       ⮕ "."            convenience barrel (browser): scene + canvas + ascii + ui + mount
+mod.ts                       ⮕ "."            convenience barrel (browser): scene + canvas + ascii + pixelart + ui + mount
 engine/                      ⮕ "./engine"     generic, headless, reusable
   math/rng.ts                seeded PRNG (mulberry32) — next/int/float/bool/pick/fork
   math/noise.ts              seeded 1-D value noise (smooth) — drives mood + organic drift
@@ -76,6 +80,8 @@ engine/                      ⮕ "./engine"     generic, headless, reusable
   scene/world.ts             World: layers + camera; update() + collect()->DisplayList
   render/draw-command.ts     DrawCommand union + DisplayList + small builder helpers
   render/renderer.ts         Renderer interface (begin/submit/end/resize)
+  render/pixel/dither.ts     Bayer ordered-dither matrix (pure) — pixel-art gradients
+  render/pixel/palette.ts    median-cut palette extraction + Oklab quantisation LUT (pure)
   loop/engine.ts             Engine: rAF loop wiring World+Renderer(+input+audio); scheduler injectable
   input/input.ts             PointerInput source (pointer/wheel) -> intents; optional, decoupled
   config/serialize.ts        generic config <-> URL-hash (base64-json) round-trip
@@ -97,8 +103,10 @@ cityscape/                   ⮕ "./cityscape"  domain content, headless
   generation/skyline.ts      assemble depth-banded layers from config (parallax + atmospheric haze)
   scene.ts                   createCityscape(config) -> CityscapeScene (the headless top-level)
 render/
-  canvas/canvas-renderer.ts  ⮕ "./render/canvas"  CanvasRenderer implements Renderer (Canvas2D, DPR-aware)
-  ascii/ascii-renderer.ts    ⮕ "./render/ascii"   AsciiRenderer implements Renderer (char grid; headless-capable)
+  shared/draw2d.ts           per-DrawCommand Canvas2D rasteriser, shared by Canvas + PixelArt
+  canvas/canvas-renderer.ts  ⮕ "./render/canvas"    CanvasRenderer implements Renderer (Canvas2D, DPR-aware)
+  ascii/ascii-renderer.ts    ⮕ "./render/ascii"     AsciiRenderer implements Renderer (char grid; headless-capable)
+  pixelart/pixelart-renderer.ts ⮕ "./render/pixelart" PixelArtRenderer (low-res buffer + scene palette + Bayer dither)
 runtime/mount.ts             mountCityscape(opts): full-page canvas + Engine + input + audio (browser)
 audio/ambient-audio.ts       AmbientAudio: WebAudio synth consuming AmbientEvents (browser, optional)
 ui/panel.ts                  ⮕ "./ui"  createControlPanel(schema, config): floating panel (vanilla + design-tokens)
@@ -108,43 +116,59 @@ ui/panel.ts                  ⮕ "./ui"  createControlPanel(schema, config): flo
 
 ```ts
 // engine/render/draw-command.ts — renderer-agnostic primitives
-type Color = { r: number; g: number; b: number; a: number };      // 0..255, a 0..1
-type Stop  = { at: number; color: Color };                         // gradient stop, at 0..1
+type Color = { r: number; g: number; b: number; a: number }; // 0..255, a 0..1
+type Stop = { at: number; color: Color }; // gradient stop, at 0..1
 type DrawCommand =
-  | { kind: "rect";     x; y; w; h; color: Color }
-  | { kind: "polygon";  points: number[]; color: Color }          // flat [x,y,x,y,...]
-  | { kind: "circle";   x; y; r; color: Color }
-  | { kind: "gradient"; x; y; w; h; stops: Stop[]; vertical?: boolean }
-  | { kind: "line";     x1; y1; x2; y2; width; color: Color }
-  | { kind: "glow";     x; y; r; color: Color; intensity: number } // soft radial light
-  | { kind: "text";     x; y; text; size; color: Color };          // ASCII renderer mainly
-interface DisplayList { width: number; height: number; commands: DrawCommand[]; }
+	| { kind: "rect"; x; y; w; h; color: Color }
+	| { kind: "polygon"; points: number[]; color: Color } // flat [x,y,x,y,...]
+	| { kind: "circle"; x; y; r; color: Color }
+	| { kind: "gradient"; x; y; w; h; stops: Stop[]; vertical?: boolean }
+	| { kind: "line"; x1; y1; x2; y2; width; color: Color }
+	| { kind: "glow"; x; y; r; color: Color; intensity: number } // soft radial light
+	| { kind: "text"; x; y; text; size; color: Color }; // ASCII renderer mainly
+interface DisplayList {
+	width: number;
+	height: number;
+	commands: DrawCommand[];
+}
 
 // engine/render/renderer.ts — the swappable seam
 interface Renderer {
-  resize(width: number, height: number, dpr?: number): void;
-  render(list: DisplayList): void;     // begin+submit+end folded into one call
+	resize(width: number, height: number, dpr?: number): void;
+	render(list: DisplayList): void; // begin+submit+end folded into one call
 }
 
 // engine/scene/entity.ts
-interface UpdateContext { dt: number; time: number; rng: Rng; mood: Mood; config; bus: AmbientEventBus; }
-interface DrawContext  { list: DisplayList; camera: Camera; mood: Mood; viewport: {w,h}; }
+interface UpdateContext {
+	dt: number;
+	time: number;
+	rng: Rng;
+	mood: Mood;
+	config;
+	bus: AmbientEventBus;
+}
+interface DrawContext {
+	list: DisplayList;
+	camera: Camera;
+	mood: Mood;
+	viewport: { w; h };
+}
 interface Entity {
-  depth: number;                       // 0 (far) .. 1 (near) — parallax + haze
-  bounds: { x: number; width: number };// world-space horizontal extent (for culling)
-  update(ctx: UpdateContext): void;
-  draw(ctx: DrawContext): void;        // pushes DrawCommands; never touches DOM
-  alive: boolean;
+	depth: number; // 0 (far) .. 1 (near) — parallax + haze
+	bounds: { x: number; width: number }; // world-space horizontal extent (for culling)
+	update(ctx: UpdateContext): void;
+	draw(ctx: DrawContext): void; // pushes DrawCommands; never touches DOM
+	alive: boolean;
 }
 
 // cityscape/scene.ts — headless top-level
 interface CityscapeScene {
-  readonly world: World;
-  readonly config: CityscapeConfig;
-  update(dtMs: number): void;          // advance the simulation
-  collect(width: number, height: number): DisplayList;
-  setConfig(patch: Partial<CityscapeConfig>): void;  // live panel edits
-  events: AmbientEventBus;
+	readonly world: World;
+	readonly config: CityscapeConfig;
+	update(dtMs: number): void; // advance the simulation
+	collect(width: number, height: number): DisplayList;
+	setConfig(patch: Partial<CityscapeConfig>): void; // live panel edits
+	events: AmbientEventBus;
 }
 ```
 
@@ -184,14 +208,17 @@ Unit-tested: `rng` (determinism, distribution, `fork` independence), `noise` (sm
 determinism), `ease`/`color` (math + `mix` monotonicity), `clock`/`FixedStepper` (accumulator),
 `camera` (parallax projection), `world` (update/collect ordering), `mood` (cycle bounds + warm/cool
 direction), `district` (legal transitions, no illegal adjacency over N runs), `spawner` (pool reuse,
-culling, no leak), `config` (normalize + serialize round-trip), `draw-command` (builder output), and
+culling, no leak), `config` (normalize + serialize round-trip), `draw-command` (builder output),
 **`ascii-renderer`** (rasterises a known display list to an expected string — this doubly verifies
-the seam). `CanvasRenderer`, `panel`, `mount`, `audio` are browser-only and verified by serving
-`example/` (documented, not Deno-unit-tested), mirroring vanilla's convention.
+the seam), and the **pixel-art primitives** (`pixel-dither`: Bayer matrix construction + tiling;
+`pixel-palette`: median-cut extraction, the Oklab quantisation LUT, and dithered quantisation
+output). `CanvasRenderer`, `PixelArtRenderer`'s canvas glue, `panel`, `mount`, `audio` are
+browser-only and verified by serving `example/` (documented, not Deno-unit-tested), mirroring
+vanilla's convention.
 
 ## 8. Milestones (build order)
 
-1. **Engine foundation** — math, draw-command, renderer iface, scene (entity/camera/layer/world), clock, loop, input, serialize. *(frozen seams first)*
+1. **Engine foundation** — math, draw-command, renderer iface, scene (entity/camera/layer/world), clock, loop, input, serialize. _(frozen seams first)_
 2. **Cityscape domain** — config+schema, palette, mood, buildings, sky, generation, scene, events.
 3. **Renderers** — CanvasRenderer + AsciiRenderer.
 4. **Runtime/UI/Audio** — mount, control panel (vanilla+design-tokens), ambient audio.

@@ -724,6 +724,9 @@ function fromOklab(o, alpha) {
         a: clamp(alpha, 0, 1)
     };
 }
+function oklab(c) {
+    return toOklab(c);
+}
 function mix(a, b, t) {
     const k = clamp(t, 0, 1);
     const oa = toOklab(a);
@@ -3235,6 +3238,71 @@ function createCityscape(config = {}) {
         ...config
     }));
 }
+function drawCommand(ctx, cmd) {
+    switch(cmd.kind){
+        case "rect":
+            ctx.fillStyle = toCss(cmd.color);
+            ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
+            return;
+        case "polygon":
+            {
+                const p = cmd.points;
+                if (p.length < 6) return;
+                ctx.fillStyle = toCss(cmd.color);
+                ctx.beginPath();
+                ctx.moveTo(p[0], p[1]);
+                for(let i = 2; i < p.length; i += 2)ctx.lineTo(p[i], p[i + 1]);
+                ctx.closePath();
+                ctx.fill();
+                return;
+            }
+        case "circle":
+            ctx.fillStyle = toCss(cmd.color);
+            ctx.beginPath();
+            ctx.arc(cmd.x, cmd.y, Math.max(0, cmd.r), 0, Math.PI * 2);
+            ctx.fill();
+            return;
+        case "gradient":
+            {
+                const g = cmd.vertical ? ctx.createLinearGradient(cmd.x, cmd.y, cmd.x, cmd.y + cmd.h) : ctx.createLinearGradient(cmd.x, cmd.y, cmd.x + cmd.w, cmd.y);
+                for (const s of cmd.stops)g.addColorStop(clamp01(s.at), toCss(s.color));
+                ctx.fillStyle = g;
+                ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
+                return;
+            }
+        case "line":
+            ctx.strokeStyle = toCss(cmd.color);
+            ctx.lineWidth = cmd.width;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(cmd.x1, cmd.y1);
+            ctx.lineTo(cmd.x2, cmd.y2);
+            ctx.stroke();
+            return;
+        case "glow":
+            {
+                const r1 = Math.max(0.5, cmd.r);
+                const g = ctx.createRadialGradient(cmd.x, cmd.y, 0, cmd.x, cmd.y, r1);
+                const c = cmd.color;
+                g.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${c.a * cmd.intensity})`);
+                g.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
+                ctx.globalCompositeOperation = "lighter";
+                ctx.fillStyle = g;
+                ctx.fillRect(cmd.x - r1, cmd.y - r1, r1 * 2, r1 * 2);
+                ctx.globalCompositeOperation = "source-over";
+                return;
+            }
+        case "text":
+            ctx.fillStyle = toCss(cmd.color);
+            ctx.font = `${cmd.size}px ui-monospace, monospace`;
+            ctx.textBaseline = "top";
+            ctx.fillText(cmd.text, cmd.x, cmd.y);
+            return;
+    }
+}
+function clamp01(n) {
+    return n < 0 ? 0 : n > 1 ? 1 : n;
+}
 class CanvasRenderer {
     #ctx;
     #canvas;
@@ -3267,7 +3335,7 @@ class CanvasRenderer {
         if (list.commands.length === 0 || list.commands[0].kind !== "gradient") {
             ctx.clearRect(0, -list.offsetY, this.#width, this.#height);
         }
-        for (const cmd of list.commands)this.#draw(ctx, cmd);
+        for (const cmd of list.commands)drawCommand(ctx, cmd);
         ctx.globalCompositeOperation = "source-over";
         this.#applyPost(ctx);
     }
@@ -3294,71 +3362,6 @@ class CanvasRenderer {
         }
         ctx.restore();
     }
-    #draw(ctx, cmd) {
-        switch(cmd.kind){
-            case "rect":
-                ctx.fillStyle = toCss(cmd.color);
-                ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
-                return;
-            case "polygon":
-                {
-                    const p = cmd.points;
-                    if (p.length < 6) return;
-                    ctx.fillStyle = toCss(cmd.color);
-                    ctx.beginPath();
-                    ctx.moveTo(p[0], p[1]);
-                    for(let i = 2; i < p.length; i += 2)ctx.lineTo(p[i], p[i + 1]);
-                    ctx.closePath();
-                    ctx.fill();
-                    return;
-                }
-            case "circle":
-                ctx.fillStyle = toCss(cmd.color);
-                ctx.beginPath();
-                ctx.arc(cmd.x, cmd.y, Math.max(0, cmd.r), 0, Math.PI * 2);
-                ctx.fill();
-                return;
-            case "gradient":
-                {
-                    const g = cmd.vertical ? ctx.createLinearGradient(cmd.x, cmd.y, cmd.x, cmd.y + cmd.h) : ctx.createLinearGradient(cmd.x, cmd.y, cmd.x + cmd.w, cmd.y);
-                    for (const s of cmd.stops)g.addColorStop(clamp01(s.at), toCss(s.color));
-                    ctx.fillStyle = g;
-                    ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
-                    return;
-                }
-            case "line":
-                ctx.strokeStyle = toCss(cmd.color);
-                ctx.lineWidth = cmd.width;
-                ctx.lineCap = "round";
-                ctx.beginPath();
-                ctx.moveTo(cmd.x1, cmd.y1);
-                ctx.lineTo(cmd.x2, cmd.y2);
-                ctx.stroke();
-                return;
-            case "glow":
-                {
-                    const r1 = Math.max(0.5, cmd.r);
-                    const g = ctx.createRadialGradient(cmd.x, cmd.y, 0, cmd.x, cmd.y, r1);
-                    const c = cmd.color;
-                    g.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${c.a * cmd.intensity})`);
-                    g.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
-                    ctx.globalCompositeOperation = "lighter";
-                    ctx.fillStyle = g;
-                    ctx.fillRect(cmd.x - r1, cmd.y - r1, r1 * 2, r1 * 2);
-                    ctx.globalCompositeOperation = "source-over";
-                    return;
-                }
-            case "text":
-                ctx.fillStyle = toCss(cmd.color);
-                ctx.font = `${cmd.size}px ui-monospace, monospace`;
-                ctx.textBaseline = "top";
-                ctx.fillText(cmd.text, cmd.x, cmd.y);
-                return;
-        }
-    }
-}
-function clamp01(n) {
-    return n < 0 ? 0 : n > 1 ? 1 : n;
 }
 function buildGrain(ctx) {
     const size = 64;
@@ -4334,9 +4337,361 @@ function sampleStops(stops, t) {
     }
     return lastStop.color;
 }
+function makeBayer(order) {
+    const n = Math.max(0, Math.floor(order));
+    let m = [
+        [
+            0
+        ]
+    ];
+    for(let k = 0; k < n; k++){
+        const s = m.length;
+        const next = Array.from({
+            length: s * 2
+        }, ()=>new Array(s * 2).fill(0));
+        for(let y = 0; y < s; y++){
+            for(let x = 0; x < s; x++){
+                const base = m[y][x] * 4;
+                next[y][x] = base + 0;
+                next[y][x + s] = base + 2;
+                next[y + s][x] = base + 3;
+                next[y + s][x + s] = base + 1;
+            }
+        }
+        m = next;
+    }
+    const size = m.length;
+    const data = new Int32Array(size * size);
+    for(let y = 0; y < size; y++){
+        for(let x = 0; x < size; x++)data[y * size + x] = m[y][x];
+    }
+    return {
+        size,
+        data
+    };
+}
+function bayerThreshold(m, x, y) {
+    const s = m.size;
+    const ix = (x % s + s) % s;
+    const iy = (y % s + s) % s;
+    return (m.data[iy * s + ix] + 0.5) / (s * s);
+}
+function extractPalette(pixels, opts = {}) {
+    const size = Math.max(1, Math.floor(opts.size ?? 32));
+    const stride = Math.max(1, Math.floor(opts.sampleStride ?? 1));
+    const alphaMin = opts.alphaThreshold ?? 8;
+    const step = 4 * stride;
+    const samples = [];
+    for(let i = 0; i + 3 < pixels.length; i += step){
+        if (pixels[i + 3] < alphaMin) continue;
+        samples.push(pixels[i], pixels[i + 1], pixels[i + 2]);
+    }
+    if (samples.length === 0) return [
+        {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 1
+        }
+    ];
+    return medianCut(Uint8Array.from(samples), size);
+}
+function medianCut(pts, maxColors) {
+    const n = pts.length / 3;
+    const idx = new Int32Array(n);
+    for(let i = 0; i < n; i++)idx[i] = i;
+    const boxes = [
+        {
+            start: 0,
+            count: n
+        }
+    ];
+    const widest = (box)=>{
+        let rmin = 255, rmax = 0, gmin = 255, gmax = 0, bmin = 255, bmax = 0;
+        const end = box.start + box.count;
+        for(let i = box.start; i < end; i++){
+            const p = idx[i] * 3;
+            const r1 = pts[p], g = pts[p + 1], b = pts[p + 2];
+            if (r1 < rmin) rmin = r1;
+            if (r1 > rmax) rmax = r1;
+            if (g < gmin) gmin = g;
+            if (g > gmax) gmax = g;
+            if (b < bmin) bmin = b;
+            if (b > bmax) bmax = b;
+        }
+        const rr = rmax - rmin, gr = gmax - gmin, br = bmax - bmin;
+        if (rr >= gr && rr >= br) return {
+            channel: 0,
+            range: rr
+        };
+        return gr >= br ? {
+            channel: 1,
+            range: gr
+        } : {
+            channel: 2,
+            range: br
+        };
+    };
+    while(boxes.length < maxColors){
+        let target = -1;
+        let bestRange = 0;
+        let bestChannel = 0;
+        for(let i = 0; i < boxes.length; i++){
+            if (boxes[i].count < 2) continue;
+            const w = widest(boxes[i]);
+            if (w.range > bestRange) {
+                bestRange = w.range;
+                bestChannel = w.channel;
+                target = i;
+            }
+        }
+        if (target < 0) break;
+        const box = boxes[target];
+        const slice = Array.from(idx.subarray(box.start, box.start + box.count));
+        slice.sort((a, b)=>pts[a * 3 + bestChannel] - pts[b * 3 + bestChannel]);
+        for(let i = 0; i < slice.length; i++)idx[box.start + i] = slice[i];
+        const half = box.count >> 1;
+        boxes.splice(target, 1, {
+            start: box.start,
+            count: half
+        }, {
+            start: box.start + half,
+            count: box.count - half
+        });
+    }
+    return boxes.map((box)=>{
+        let r1 = 0, g = 0, b = 0;
+        const end = box.start + box.count;
+        for(let i = box.start; i < end; i++){
+            const p = idx[i] * 3;
+            r1 += pts[p];
+            g += pts[p + 1];
+            b += pts[p + 2];
+        }
+        const c = Math.max(1, box.count);
+        return {
+            r: Math.round(r1 / c),
+            g: Math.round(g / c),
+            b: Math.round(b / c),
+            a: 1
+        };
+    });
+}
+function buildPaletteLut(palette, bits = 5) {
+    const bb = Math.max(1, Math.min(8, Math.floor(bits)));
+    const n = 1 << bb;
+    const shift = 8 - bb;
+    const half = shift > 0 ? 1 << shift - 1 : 0;
+    const pal = palette.length > 0 ? palette : [
+        {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 1
+        }
+    ];
+    const palOk = pal.map(oklab);
+    const cells = n * n * n;
+    const a = new Uint8Array(cells * 3);
+    const b = new Uint8Array(cells * 3);
+    const t = new Uint8Array(cells);
+    for(let r1 = 0; r1 < n; r1++){
+        for(let g = 0; g < n; g++){
+            for(let bl = 0; bl < n; bl++){
+                const o = oklab({
+                    r: (r1 << shift) + half,
+                    g: (g << shift) + half,
+                    b: (bl << shift) + half,
+                    a: 1
+                });
+                let i1 = 0, d1 = Infinity, i2 = -1, d2 = Infinity;
+                for(let p = 0; p < palOk.length; p++){
+                    const po = palOk[p];
+                    const dL = o.L - po.L, da = o.a - po.a, db = o.b - po.b;
+                    const d = dL * dL + da * da + db * db;
+                    if (d < d1) {
+                        d2 = d1;
+                        i2 = i1;
+                        d1 = d;
+                        i1 = p;
+                    } else if (d < d2) {
+                        d2 = d;
+                        i2 = p;
+                    }
+                }
+                if (i2 < 0) i2 = i1;
+                const p1 = palOk[i1], p2 = palOk[i2];
+                const vL = p2.L - p1.L, va = p2.a - p1.a, vb = p2.b - p1.b;
+                const vv = vL * vL + va * va + vb * vb;
+                let tt = vv > 1e-9 ? ((o.L - p1.L) * vL + (o.a - p1.a) * va + (o.b - p1.b) * vb) / vv : 0;
+                tt = tt < 0 ? 0 : tt > 1 ? 1 : tt;
+                const cell = (r1 * n + g) * n + bl;
+                const c3 = cell * 3;
+                const ca = pal[i1], cb = pal[i2];
+                a[c3] = ca.r;
+                a[c3 + 1] = ca.g;
+                a[c3 + 2] = ca.b;
+                b[c3] = cb.r;
+                b[c3 + 1] = cb.g;
+                b[c3 + 2] = cb.b;
+                t[cell] = Math.round(tt * 255);
+            }
+        }
+    }
+    return {
+        bits: bb,
+        a,
+        b,
+        t
+    };
+}
+function ditherQuantize(data, width, height, lut, bayer, strength = 1) {
+    const n = 1 << lut.bits;
+    const shift = 8 - lut.bits;
+    const { a, b, t } = lut;
+    const s = strength < 0 ? 0 : strength > 1 ? 1 : strength;
+    for(let y = 0; y < height; y++){
+        for(let x = 0; x < width; x++){
+            const i = (y * width + x) * 4;
+            if (data[i + 3] < 8) continue;
+            const cell = ((data[i] >> shift) * n + (data[i + 1] >> shift)) * n + (data[i + 2] >> shift);
+            const frac = t[cell] / 255 * s;
+            const src = bayerThreshold(bayer, x, y) < frac ? b : a;
+            const c3 = cell * 3;
+            data[i] = src[c3];
+            data[i + 1] = src[c3 + 1];
+            data[i + 2] = src[c3 + 2];
+        }
+    }
+}
+class PixelArtRenderer {
+    #canvas;
+    #ctx;
+    #buf;
+    #bctx;
+    #dpr = 1;
+    #width = 0;
+    #height = 0;
+    #vw = 1;
+    #vh = 1;
+    #pixelScale;
+    #paletteSize;
+    #dither;
+    #refresh;
+    #lutBits;
+    #bayer;
+    #palette = [];
+    #lut = null;
+    #frame = 0;
+    #lastPaletteFrame = -1;
+    constructor(canvas, opts = {}){
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("PixelArtRenderer: 2D context unavailable");
+        this.#canvas = canvas;
+        this.#ctx = ctx;
+        const buf = document.createElement("canvas");
+        const bctx = buf.getContext("2d", {
+            willReadFrequently: true
+        });
+        if (!bctx) throw new Error("PixelArtRenderer: offscreen 2D context unavailable");
+        this.#buf = buf;
+        this.#bctx = bctx;
+        this.#pixelScale = Math.max(1, opts.pixelScale ?? 4);
+        this.#paletteSize = Math.max(2, opts.paletteSize ?? 48);
+        this.#dither = clamp011(opts.dither ?? 1);
+        this.#refresh = Math.max(1, opts.paletteRefreshFrames ?? 18);
+        this.#lutBits = Math.max(4, Math.min(6, opts.lutBits ?? 5));
+        this.#bayer = makeBayer(3);
+    }
+    get bufferSize() {
+        return {
+            width: this.#vw,
+            height: this.#vh
+        };
+    }
+    setOptions(opts) {
+        let geometryChanged = false;
+        if (opts.pixelScale !== undefined) {
+            const next = Math.max(1, opts.pixelScale);
+            geometryChanged = next !== this.#pixelScale;
+            this.#pixelScale = next;
+        }
+        if (opts.paletteSize !== undefined) {
+            this.#paletteSize = Math.max(2, opts.paletteSize);
+            this.#lastPaletteFrame = -1;
+        }
+        if (opts.dither !== undefined) this.#dither = clamp011(opts.dither);
+        if (opts.paletteRefreshFrames !== undefined) {
+            this.#refresh = Math.max(1, opts.paletteRefreshFrames);
+        }
+        if (opts.lutBits !== undefined) {
+            this.#lutBits = Math.max(4, Math.min(6, opts.lutBits));
+            this.#lastPaletteFrame = -1;
+        }
+        if (geometryChanged && this.#width > 0) {
+            this.resize(this.#width, this.#height, this.#dpr);
+        }
+    }
+    resize(width, height, dpr = 1) {
+        this.#width = width;
+        this.#height = height;
+        this.#dpr = dpr;
+        this.#canvas.width = Math.max(1, Math.round(width * dpr));
+        this.#canvas.height = Math.max(1, Math.round(height * dpr));
+        this.#canvas.style.width = `${width}px`;
+        this.#canvas.style.height = `${height}px`;
+        this.#vw = Math.max(1, Math.round(width / this.#pixelScale));
+        this.#vh = Math.max(1, Math.round(height / this.#pixelScale));
+        this.#buf.width = this.#vw;
+        this.#buf.height = this.#vh;
+        this.#lastPaletteFrame = -1;
+    }
+    render(list) {
+        const b = this.#bctx;
+        const vw = this.#vw;
+        const vh = this.#vh;
+        const sx = vw / Math.max(1, this.#width);
+        const sy = vh / Math.max(1, this.#height);
+        b.setTransform(1, 0, 0, 1, 0, 0);
+        b.clearRect(0, 0, vw, vh);
+        b.setTransform(sx, 0, 0, sy, 0, list.offsetY * sy);
+        for (const cmd of list.commands)drawCommand(b, cmd);
+        b.setTransform(1, 0, 0, 1, 0, 0);
+        const img = b.getImageData(0, 0, vw, vh);
+        if (this.#lut === null || this.#frame - this.#lastPaletteFrame >= this.#refresh) {
+            this.#palette = extractPalette(img.data, {
+                size: this.#paletteSize,
+                sampleStride: paletteStride(vw, vh)
+            });
+            this.#lut = buildPaletteLut(this.#palette, this.#lutBits);
+            this.#lastPaletteFrame = this.#frame;
+        }
+        ditherQuantize(img.data, vw, vh, this.#lut, this.#bayer, this.#dither);
+        b.putImageData(img, 0, 0);
+        const c = this.#ctx;
+        c.setTransform(1, 0, 0, 1, 0, 0);
+        c.imageSmoothingEnabled = false;
+        c.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
+        c.drawImage(this.#buf, 0, 0, vw, vh, 0, 0, this.#canvas.width, this.#canvas.height);
+        c.imageSmoothingEnabled = true;
+        this.#frame++;
+    }
+    dispose() {
+        this.#buf.width = 0;
+        this.#buf.height = 0;
+        this.#lut = null;
+        this.#palette = [];
+    }
+}
+function clamp011(n) {
+    return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+function paletteStride(vw, vh) {
+    return Math.max(1, Math.floor(vw * vh / 3000));
+}
 const handle = mountCityscape({
     writeHash: true,
-    randomizeSeed: false
+    randomizeSeed: true
 });
 const canvasRenderer = handle.renderer;
 const toast = document.createElement("div");
@@ -4377,28 +4732,49 @@ const asciiAdapter = {
         pre.textContent = ascii.toString();
     }
 };
-let asciiOn = false;
-function setAscii(on) {
-    asciiOn = on;
-    pre.style.display = on ? "block" : "none";
-    handle.canvas.style.opacity = on ? "0" : "1";
-    handle.setRenderer(on ? asciiAdapter : canvasRenderer);
-    asciiBtn.textContent = on ? "Canvas view" : "ASCII view";
+let pixelScale = 4;
+const pixel = new PixelArtRenderer(handle.canvas, {
+    pixelScale
+});
+let mode = "canvas";
+function setMode(next) {
+    mode = next;
+    const asciiOn = next === "ascii";
+    pre.style.display = asciiOn ? "block" : "none";
+    handle.canvas.style.opacity = asciiOn ? "0" : "1";
+    handle.setRenderer(next === "ascii" ? asciiAdapter : next === "pixel" ? pixel : canvasRenderer);
+    asciiBtn.textContent = asciiOn ? "Canvas view" : "ASCII view";
+    pixelBtn.textContent = next === "pixel" ? "Canvas view" : "Pixel view";
+}
+function toggleMode(m) {
+    setMode(mode === m ? "canvas" : m);
+}
+function adjustPixelScale(delta) {
+    if (mode !== "pixel") return;
+    pixelScale = Math.max(1, Math.min(12, pixelScale + delta));
+    pixel.setOptions({
+        pixelScale
+    });
+    flash(`Pixel size ${pixelScale}`);
 }
 const bar = document.createElement("div");
 bar.className = "cs-bar";
 const asciiBtn = document.createElement("button");
 asciiBtn.className = "cs-bar-btn";
 asciiBtn.textContent = "ASCII view";
-asciiBtn.addEventListener("click", ()=>setAscii(!asciiOn));
+asciiBtn.addEventListener("click", ()=>toggleMode("ascii"));
+const pixelBtn = document.createElement("button");
+pixelBtn.className = "cs-bar-btn";
+pixelBtn.textContent = "Pixel view";
+pixelBtn.addEventListener("click", ()=>toggleMode("pixel"));
 const fsBtn = document.createElement("button");
 fsBtn.className = "cs-bar-btn";
 fsBtn.textContent = "Fullscreen";
 fsBtn.addEventListener("click", ()=>setImmersive(true));
 const hint = document.createElement("span");
 hint.className = "cs-hint";
-hint.textContent = "move = parallax · wheel = speed · click = flash · keys: a / h / f";
-bar.append(asciiBtn, fsBtn, hint);
+hint.textContent = "move = parallax · wheel = speed · click = flash · keys: a / p / [ ] / h / f";
+bar.append(asciiBtn, pixelBtn, fsBtn, hint);
 document.body.append(bar);
 const controls = [
     panel.el,
@@ -4410,7 +4786,9 @@ function setImmersive(on) {
     immersive = on;
     for (const el of controls)el.style.display = on ? "none" : "";
     if (on) document.documentElement.requestFullscreen?.().catch(()=>{});
-    else if (document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
+    else if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(()=>{});
+    }
 }
 document.addEventListener("fullscreenchange", ()=>{
     if (!document.fullscreenElement && immersive) setImmersive(false);
@@ -4419,7 +4797,10 @@ addEventListener("keydown", (e)=>{
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
         return;
     }
-    if (e.key === "a") setAscii(!asciiOn);
+    if (e.key === "a") toggleMode("ascii");
+    else if (e.key === "p") toggleMode("pixel");
+    else if (e.key === "[") adjustPixelScale(-1);
+    else if (e.key === "]") adjustPixelScale(1);
     else if (e.key === "h") panel.toggle();
     else if (e.key === "f") setImmersive(!immersive);
 });

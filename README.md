@@ -31,12 +31,13 @@ mountCityscape(); // full-page animated background + control panel. That's it.
 
 The animation is the demo; the architecture is the point. The whole simulation is a **pure,
 DOM-free, deterministic core**, and a **swappable renderer** turns it into pixels. To prove the
-seam is real, it ships a Canvas2D renderer **and** an ASCII renderer that consume the *same* draw
-list — you can toggle between them live.
+seam is real, it ships **three** renderers that consume the _same_ draw list — a Canvas2D renderer,
+an ASCII renderer, and a pixel-art renderer (low-res, palette-quantised, ordered-dithered) — and you
+can toggle between them live.
 
 - **Renderer-agnostic core.** Entities emit a `DisplayList` of abstract draw commands (rect,
-  polygon, circle, gradient, line, glow). A `Renderer` rasterises it. Swapping Canvas → ASCII is
-  swapping the consumer of the same list.
+  polygon, circle, gradient, line, glow). A `Renderer` rasterises it. Swapping Canvas → ASCII →
+  PixelArt is swapping the consumer of the same list — the simulation never changes.
 - **Pure & deterministic.** `engine/` and `cityscape/` never touch the DOM — a
   [test enforces it](tests/dom-purity.test.ts). Same `seed` + config reproduces the exact city,
   which is why it's unit-testable and why a chosen look is a shareable URL-hash permalink.
@@ -57,14 +58,15 @@ list — you can toggle between them live.
 import { mountCityscape } from "jsr:@marianmeres/cityscape";
 ```
 
-| Subpath | What |
-|---|---|
-| `@marianmeres/cityscape` | high-level API: `mountCityscape`, `createCityscape`, renderers, panel, config |
-| `@marianmeres/cityscape/engine` | the generic, headless animation engine (reusable on its own) |
-| `@marianmeres/cityscape/cityscape` | the city domain: config, palettes, mood, entities, generation |
-| `@marianmeres/cityscape/render/canvas` | `CanvasRenderer` |
-| `@marianmeres/cityscape/render/ascii` | `AsciiRenderer` (headless, string-producing) |
-| `@marianmeres/cityscape/ui` | the schema-driven control panel |
+| Subpath                                  | What                                                                          |
+| ---------------------------------------- | ----------------------------------------------------------------------------- |
+| `@marianmeres/cityscape`                 | high-level API: `mountCityscape`, `createCityscape`, renderers, panel, config |
+| `@marianmeres/cityscape/engine`          | the generic, headless animation engine (reusable on its own)                  |
+| `@marianmeres/cityscape/cityscape`       | the city domain: config, palettes, mood, entities, generation                 |
+| `@marianmeres/cityscape/render/canvas`   | `CanvasRenderer`                                                              |
+| `@marianmeres/cityscape/render/ascii`    | `AsciiRenderer` (headless, string-producing)                                  |
+| `@marianmeres/cityscape/render/pixelart` | `PixelArtRenderer` (low-res, palette-quantised, dithered)                     |
+| `@marianmeres/cityscape/ui`              | the schema-driven control panel                                               |
 
 ## Run the example
 
@@ -75,8 +77,9 @@ deno task example:build    # bundle example/main.ts → example/dist/bundle.js
 ```
 
 In the example: **move** the pointer for parallax + vertical pan · **wheel** to scrub speed ·
-**click** to flash a building's windows · press **`a`** to toggle the ASCII view · **`h`** to hide
-the panel · the **🔗** button copies a permalink that restores the exact look.
+**click** to flash a building's windows · press **`a`** to toggle the ASCII view · **`p`** for the
+pixel-art view (**`[`** / **`]`** adjust the pixel size) · **`h`** to hide the panel · the **🔗**
+button copies a permalink that restores the exact look.
 
 ## Headless usage (your own loop / renderer)
 
@@ -105,7 +108,11 @@ Every knob lives in `CONFIG_SCHEMA` (the panel and `DEFAULT_CONFIG` derive from 
 
 ```ts
 import { createCityscape } from "@marianmeres/cityscape";
-const scene = createCityscape({ palette: "vaporwave", moodCycleSeconds: 45, darkness: 0.3 });
+const scene = createCityscape({
+	palette: "vaporwave",
+	moodCycleSeconds: 45,
+	darkness: 0.3,
+});
 scene.setConfig({ cameraDirection: "left" }); // live edits
 ```
 

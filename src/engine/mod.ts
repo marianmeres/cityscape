@@ -27,6 +27,9 @@ export * from "./scene/world.ts";
 export * from "./render/draw-command.ts";
 export * from "./render/renderer.ts";
 
+// pixel-art primitives (pure: ordered dither + palette quantisation)
+export * from "./render/pixel/mod.ts";
+
 // loop
 export * from "./loop/engine.ts";
 
