@@ -1,8 +1,11 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" class="dark">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+		/>
 		<title>@marianmeres/cityscape — infinite night skyline</title>
 		<meta
 			name="description"
@@ -22,8 +25,12 @@
 		<link rel="stylesheet" href="./theme/cityscape.css" />
 
 		<style>
-			:root { color-scheme: dark; }
-			html, body { height: 100%; }
+			:root {
+				color-scheme: dark;
+			}
+			html, body {
+				height: 100%;
+			}
 			body {
 				margin: 0;
 				position: relative;
@@ -74,8 +81,12 @@
 				cursor: pointer;
 				backdrop-filter: blur(10px);
 			}
-			.cs-bar-btn:hover { background: var(--app-color-muted, rgba(255, 255, 255, 0.08)); }
-			.cs-hint { opacity: 0.7; }
+			.cs-bar-btn:hover {
+				background: var(--app-color-muted, rgba(255, 255, 255, 0.08));
+			}
+			.cs-hint {
+				opacity: 0.7;
+			}
 
 			/* Permalink toast. */
 			.cs-toast {
@@ -94,10 +105,15 @@
 				pointer-events: none;
 				transition: opacity 0.2s, transform 0.2s;
 			}
-			.cs-toast-show { opacity: 1; transform: translate(-50%, 0); }
+			.cs-toast-show {
+				opacity: 1;
+				transform: translate(-50%, 0);
+			}
 
 			@media (max-width: 560px) {
-				.cs-hint { display: none; }
+				.cs-hint {
+					display: none;
+				}
 			}
 		</style>
 	</head>

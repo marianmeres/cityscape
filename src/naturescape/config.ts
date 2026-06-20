@@ -249,7 +249,10 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		group: "Day",
 		type: "select",
 		default: "day",
-		options: PALETTE_NAMES.map((n) => ({ value: n, label: PALETTES[n].label })),
+		options: PALETTE_NAMES.map((n) => ({
+			value: n,
+			label: PALETTES[n].label,
+		})),
 	},
 	{
 		key: "dayCycleSeconds",
@@ -304,7 +307,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.45,
+		default: 1,
 		help: "Darken the frame toward the corners (+ faint grain). 0 = off.",
 	},
 	// ── Season ─────────────────────────────────────────────────────────
@@ -314,7 +317,10 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		group: "Season",
 		type: "select",
 		default: "summer",
-		options: SEASON_NAMES.map((n) => ({ value: n, label: SEASONS[n].label })),
+		options: SEASON_NAMES.map((n) => ({
+			value: n,
+			label: SEASONS[n].label,
+		})),
 	},
 	{
 		key: "seasonCycle",
@@ -466,7 +472,9 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 ];
 
 /** Build the default config object from the schema's `default`s. */
-export function buildDefaults(schema: ConfigField[] = CONFIG_SCHEMA): NatureConfig {
+export function buildDefaults(
+	schema: ConfigField[] = CONFIG_SCHEMA,
+): NatureConfig {
 	return buildSchemaDefaults<NatureConfig>(schema);
 }
 
