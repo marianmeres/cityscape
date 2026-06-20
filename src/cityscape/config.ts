@@ -77,6 +77,8 @@ export interface CityscapeConfig {
 	waterLevel: number;
 	shoreHeight: number;
 	buildingShading: number;
+	biomeVariety: number;
+	biomeScale: number;
 	// Mood
 	palette: string;
 	moodCycleSeconds: number;
@@ -230,6 +232,30 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		default: 0.5,
 		help:
 			"Soft top-light on near buildings so silhouettes read as volumes. 0 = flat.",
+	},
+	{
+		key: "biomeVariety",
+		label: "Biome journey",
+		group: "World",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0,
+		help:
+			"Drift between dense city and open outskirts as you scroll. 0 = uniform city.",
+	},
+	{
+		key: "biomeScale",
+		label: "Region length",
+		group: "World",
+		type: "range",
+		min: 1,
+		max: 12,
+		step: 0.5,
+		default: 5,
+		help:
+			"How long each city/outskirts stretch lasts (world units). Higher = longer.",
 	},
 	// ── Mood ───────────────────────────────────────────────────────────
 	{

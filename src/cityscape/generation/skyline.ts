@@ -24,6 +24,7 @@ import { BirdDirector } from "../sky/bird.ts";
 import { Water } from "../sky/water.ts";
 import { Shore } from "../sky/shore.ts";
 import { LayerSpawner } from "./spawner.ts";
+import { BiomeField } from "./biome.ts";
 
 /** What skyline assembly hands back to the scene. */
 export interface Skyline {
@@ -52,6 +53,9 @@ export function buildSkyline(
 	// just 2 layers they sit near each other in parallax speed, size, and shore stagger.
 	const n = Math.max(1, Math.round(config.parallaxLayers));
 	const spawners: LayerSpawner[] = [];
+	// One field shared by every band so they agree on the macro journey. `fork` derives a stable
+	// seed without consuming the parent stream, so the other forks above are unaffected.
+	const biomeField = new BiomeField(rng.fork("biome").seed);
 	for (let i = 0; i < n; i++) {
 		const f = n === 1 ? 1 : i / (n - 1); // 0 = far, 1 = near
 		const depth = lerp(0.6, 0.92, f);
@@ -67,6 +71,7 @@ export function buildSkyline(
 				shoreOffset,
 				scale,
 				excludeKinds: isFront ? ["skyscraper"] : undefined,
+				biomeField,
 			}),
 		);
 	}

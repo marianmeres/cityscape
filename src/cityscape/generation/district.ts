@@ -86,6 +86,35 @@ export interface DistrictSlot {
 }
 
 /**
+ * Each district's place on the urbanism axis (`0` = open country, `1` = dense downtown). The biome
+ * field's local urbanism is matched against these to bias transitions toward fitting districts.
+ */
+const URBANISM: Record<District, number> = {
+	downtown: 1,
+	commercial: 0.72,
+	residential: 0.38,
+	industrial: 0.28,
+	park: 0.12,
+};
+
+/**
+ * Scale a transition weight by how well a candidate district's urbanism matches the local biome.
+ * `variety` 0 leaves the weight untouched (so the FSM is identical to the uniform city); higher
+ * values sharpen the match so the skyline drifts city↔country as you travel. Clamped to a small
+ * positive so any legal successor stays barely possible (transitions never hard-lock).
+ */
+function biasWeight(
+	weight: number,
+	level: number,
+	urbanism: number,
+	variety: number,
+): number {
+	const diff = Math.abs(level - urbanism); // 0 (perfect match) .. 1 (opposite)
+	const factor = Math.max(0.02, 1 + variety * 3 * (1 - 2 * diff));
+	return weight * factor;
+}
+
+/**
  * A forward, infinite stream of {@link DistrictSlot}s. Walks the zoning FSM, emitting buildings
  * for the current district until its run is spent, then legally transitions.
  */
@@ -110,11 +139,24 @@ export class DistrictStream {
 		return this.#rng.int(lo, hi);
 	}
 
-	/** Emit the next slot, advancing (and transitioning) the FSM as needed. */
-	next(): DistrictSlot {
+	/**
+	 * Emit the next slot, advancing (and transitioning) the FSM as needed. `urbanism` (0..1) is the
+	 * local biome reading and `variety` (0..1) the journey strength; with `variety = 0` the biome is
+	 * ignored and the stream is identical to the uniform city. Only district *transitions* are
+	 * biased — kind and gap selection within a district are unchanged — and `weighted()` always
+	 * consumes exactly one RNG draw, so turning the journey on never desyncs determinism. The FSM is
+	 * stateful, though: a *live* change to `variety` shifts the ongoing journey irreversibly; only a
+	 * freshly-constructed stream is byte-exact for a given seed (see `./biome.ts`).
+	 */
+	next(urbanism = 0.5, variety = 0): DistrictSlot {
 		if (this.#remaining <= 0) {
 			const rule = RULES[this.#district];
-			this.#district = this.#rng.weighted(rule.next, rule.nextWeights);
+			const weights = variety > 0
+				? rule.next.map((d, i) =>
+					biasWeight(rule.nextWeights[i], URBANISM[d], urbanism, variety)
+				)
+				: rule.nextWeights;
+			this.#district = this.#rng.weighted(rule.next, weights);
 			this.#remaining = this.#rollRun(this.#district);
 		}
 		this.#remaining--;
