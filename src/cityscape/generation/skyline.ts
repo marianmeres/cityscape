@@ -16,6 +16,7 @@ import type { World } from "../../engine/scene/world.ts";
 import type { CityscapeConfig } from "../config.ts";
 import type { CityEnv } from "../env.ts";
 import { SkyBackdrop } from "../sky/backdrop.ts";
+import { Aurora } from "../sky/aurora.ts";
 import { Starfield } from "../sky/starfield.ts";
 import { Moon } from "../sky/moon.ts";
 import { CloudField } from "../sky/cloud.ts";
@@ -44,6 +45,7 @@ export function buildSkyline(
 	// stars → moon → high flyers (planes/satellites/shooting stars) → clouds in front of them.
 	const sky = new Layer<CityEnv>("sky", 0);
 	sky.add(new SkyBackdrop());
+	sky.add(new Aurora(rng.fork("aurora")));
 	sky.add(new Starfield(rng.fork("stars")));
 	sky.add(new Moon(rng.fork("moon")));
 	sky.add(new FlyerDirector(rng.fork("flyer")));

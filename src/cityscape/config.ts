@@ -96,6 +96,7 @@ export interface CityscapeConfig {
 	flyerChance: number;
 	trafficChance: number;
 	fog: number;
+	aurora: number;
 	// Audio
 	audioEnabled: boolean;
 	audioVolume: number;
@@ -407,6 +408,17 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		step: 0.05,
 		default: 0.3,
 		help: "Low mist hazing the base of the skyline. 0 = clear.",
+	},
+	{
+		key: "aurora",
+		label: "Aurora",
+		group: "Sky",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.3,
+		help: "Faint sky shimmer (navy & vaporwave palettes only). 0 = off.",
 	},
 	// ── Audio ──────────────────────────────────────────────────────────
 	{
