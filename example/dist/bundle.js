@@ -385,6 +385,28 @@ const CONFIG_SCHEMA = [
         help: "Soft top-light on near buildings so silhouettes read as volumes. 0 = flat."
     },
     {
+        key: "biomeVariety",
+        label: "Biome journey",
+        group: "World",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0,
+        help: "Drift between dense city and open outskirts as you scroll. 0 = uniform city."
+    },
+    {
+        key: "biomeScale",
+        label: "Region length",
+        group: "World",
+        type: "range",
+        min: 1,
+        max: 12,
+        step: 0.5,
+        default: 5,
+        help: "How long each city/outskirts stretch lasts (world units). Higher = longer."
+    },
+    {
         key: "palette",
         label: "Palette",
         group: "Mood",
@@ -2311,6 +2333,18 @@ const RULES = {
         ]
     }
 };
+const URBANISM = {
+    downtown: 1,
+    commercial: 0.72,
+    residential: 0.38,
+    industrial: 0.28,
+    park: 0.12
+};
+function biasWeight(weight, level, urbanism, variety) {
+    const diff = Math.abs(level - urbanism);
+    const factor = Math.max(0.02, 1 + variety * 3 * (1 - 2 * diff));
+    return weight * factor;
+}
 class DistrictStream {
     #rng;
     #district;
@@ -2327,10 +2361,11 @@ class DistrictStream {
         const [lo, hi] = RULES[d].run;
         return this.#rng.int(lo, hi);
     }
-    next() {
+    next(urbanism = 0.5, variety = 0) {
         if (this.#remaining <= 0) {
             const rule = RULES[this.#district];
-            this.#district = this.#rng.weighted(rule.next, rule.nextWeights);
+            const weights = variety > 0 ? rule.next.map((d, i)=>biasWeight(rule.nextWeights[i], URBANISM[d], urbanism, variety)) : rule.nextWeights;
+            this.#district = this.#rng.weighted(rule.next, weights);
             this.#remaining = this.#rollRun(this.#district);
         }
         this.#remaining--;
@@ -2372,6 +2407,10 @@ class LayerSpawner {
     #left = 0;
     #init = false;
     #exclude;
+    #biomeField;
+    #biomeShift = 0;
+    #biomeScale = 5;
+    #biomeVariety = 0;
     constructor(layer, rng, opts){
         this.layer = layer;
         this.depth = opts.depth;
@@ -2379,6 +2418,7 @@ class LayerSpawner {
         this.#scale = opts.scale;
         this.#rng = rng;
         this.#exclude = new Set(opts.excludeKinds ?? []);
+        this.#biomeField = opts.biomeField;
         this.#streamR = new DistrictStream(rng.fork("right"));
         this.#streamL = new DistrictStream(rng.fork("left"));
     }
@@ -2397,6 +2437,9 @@ class LayerSpawner {
             this.#init = true;
         }
         const litChance = env.config.windowLightChance;
+        this.#biomeShift = camera.scroll * (1 - camera.parallaxAt(this.depth));
+        this.#biomeScale = env.config.biomeScale;
+        this.#biomeVariety = env.config.biomeVariety;
         let guard = 0;
         while(camera.project(this.#right, this.depth) < width + 340 && guard++ < 400){
             this.#placeRight(litChance);
@@ -2413,8 +2456,15 @@ class LayerSpawner {
     #obtain() {
         return this.#pool.pop() ?? new Building(this.depth, this.#rng.fork(this.layer.entities.length + 1));
     }
+    #nextSlot(stream, edge) {
+        if (this.#biomeField && this.#biomeVariety > 0) {
+            const urbanism = this.#biomeField.urbanismAt(edge + this.#biomeShift, this.#biomeScale);
+            return stream.next(urbanism, this.#biomeVariety);
+        }
+        return stream.next();
+    }
     #placeRight(litChance) {
-        const slot = this.#streamR.next();
+        const slot = this.#nextSlot(this.#streamR, this.#right);
         const gap = slot.gap * this.#scale;
         if (slot.kind === null) {
             this.#right += gap;
@@ -2428,7 +2478,7 @@ class LayerSpawner {
         this.#right = leftEdge + b.bounds.width;
     }
     #placeLeft(litChance) {
-        const slot = this.#streamL.next();
+        const slot = this.#nextSlot(this.#streamL, this.#left);
         const gap = slot.gap * this.#scale;
         if (slot.kind === null) {
             this.#left -= gap;
@@ -2477,6 +2527,17 @@ class LayerSpawner {
         this.#right = hi;
     }
 }
+class BiomeField {
+    #noise;
+    constructor(seed){
+        this.#noise = createNoise1D((seed ^ 0xb10e) >>> 0, 2);
+    }
+    urbanismAt(worldX, scale) {
+        const s = scale > 0 ? scale : 1;
+        const n = this.#noise.at(worldX / s);
+        return clamp(0.5 + (n - 0.5) * 1.4, 0, 1);
+    }
+}
 function buildSkyline(world, config, rng) {
     const sky = new Layer("sky", 0);
     sky.add(new SkyBackdrop());
@@ -2487,6 +2548,7 @@ function buildSkyline(world, config, rng) {
     world.addLayer(sky);
     const n = Math.max(1, Math.round(config.parallaxLayers));
     const spawners = [];
+    const biomeField = new BiomeField(rng.fork("biome").seed);
     for(let i = 0; i < n; i++){
         const f = n === 1 ? 1 : i / (n - 1);
         const depth = lerp(0.6, 0.92, f);
@@ -2501,7 +2563,8 @@ function buildSkyline(world, config, rng) {
             scale,
             excludeKinds: isFront ? [
                 "skyscraper"
-            ] : undefined
+            ] : undefined,
+            biomeField
         }));
     }
     const birds = new Layer("birds", 0.94);
