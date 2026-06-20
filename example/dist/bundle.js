@@ -545,6 +545,17 @@ const CONFIG_SCHEMA = [
         help: "Sparse headlights crossing the waterfront. Needs a shore to drive on."
     },
     {
+        key: "fog",
+        label: "Ground fog",
+        group: "Sky",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.3,
+        help: "Low mist hazing the base of the skyline. 0 = clear."
+    },
+    {
         key: "audioEnabled",
         label: "Ambient sound",
         group: "Audio",
@@ -2046,6 +2057,52 @@ function drawLampReflection(out, x, waterY, waterH, r1, time, phase) {
         }
     ], true);
 }
+class GroundFog {
+    depth = 1.05;
+    bounds = {
+        x: -Infinity,
+        width: Infinity
+    };
+    alive = true;
+    #mood;
+    #amount = 0;
+    #water = 0.33;
+    #shore = 0.025;
+    #time = 0;
+    update(ctx) {
+        this.#mood = ctx.env.mood;
+        this.#amount = ctx.env.config.fog;
+        this.#water = ctx.env.config.waterLevel;
+        this.#shore = ctx.env.config.shoreHeight;
+        this.#time = ctx.time;
+    }
+    draw(ctx) {
+        if (this.#amount <= 0.001) return;
+        const { out, width, height } = ctx;
+        const waterY = (1 - this.#water) * height;
+        const feetY = (1 - this.#water - this.#shore) * height;
+        const top = feetY - height * 0.16;
+        const bandH = waterY - top;
+        if (bandH <= 0) return;
+        const breath = 0.85 + 0.15 * Math.sin(this.#time * 0.0004);
+        const a = clamp(this.#amount * 0.34 * breath, 0, 1);
+        const c = mix(this.#mood.haze, this.#mood.horizonGlow, 0.4);
+        out.gradient(0, top, width, bandH, [
+            {
+                at: 0,
+                color: withAlpha(c, 0)
+            },
+            {
+                at: 0.65,
+                color: withAlpha(c, a)
+            },
+            {
+                at: 1,
+                color: withAlpha(c, a * 0.6)
+            }
+        ], true);
+    }
+}
 const HEAD_WARM = rgb(255, 214, 150);
 const HEAD_COOL = rgb(206, 224, 255);
 const TAIL = rgb(255, 72, 60);
@@ -2802,6 +2859,9 @@ function buildSkyline(world, config, rng) {
     const water = new Layer("water", 1);
     water.add(new Water(rng.fork("water")));
     world.addLayer(water);
+    const fog = new Layer("fog", 1.05);
+    fog.add(new GroundFog());
+    world.addLayer(fog);
     const shore = new Layer("shore", 1.1);
     shore.add(new Shore(rng.fork("shore")));
     world.addLayer(shore);

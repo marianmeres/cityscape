@@ -32,7 +32,7 @@ Branch: `visual-overhaul`
 | 8    | Coast biome (sparse waterfront)                           | [02](./02-biome-journey.md) #3     | ⬜                                |
 | 9    | Transition blending + far-layer hills/treeline            | [02](./02-biome-journey.md) #4     | ⬜                                |
 | 10   | Streak reflections on water                               | [03](./03-foreground-life.md) #3   | ✅ `dac88c6` (folded into task 7) |
-| 11   | Ground fog / mist                                         | [04](./04-atmosphere-polish.md) #1 | ⬜                                |
+| 11   | Ground fog / mist                                         | [04](./04-atmosphere-polish.md) #1 | ✅ `3c59046`                      |
 | 12   | Neon rooftop signs                                        | [04](./04-atmosphere-polish.md) #2 | ⬜                                |
 | 13   | Water reflections of near-window lights                   | [04](./04-atmosphere-polish.md) #3 | ⬜                                |
 | 14   | Drifting airship                                          | [04](./04-atmosphere-polish.md) #4 | ⬜                                |
