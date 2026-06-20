@@ -18,7 +18,7 @@ import type { DisplayListBuilder } from "../../engine/render/draw-command.ts";
 import type { DrawContext, Entity, UpdateContext } from "../../engine/scene/entity.ts";
 import { silhouetteColor } from "../mood.ts";
 import type { CityEnv } from "../env.ts";
-import type { BuildingSpec, RoofKind } from "./kinds.ts";
+import type { BodyShape, BuildingSpec, RoofKind } from "./kinds.ts";
 import { WindowGrid } from "./window-grid.ts";
 
 const ANTENNA_LIGHT = rgb(255, 70, 64);
@@ -120,6 +120,7 @@ export class Building implements Entity<CityEnv> {
 			this.#color,
 			spec.setbacks,
 			this.#shade,
+			spec.shape,
 		);
 
 		// Windows.
@@ -155,7 +156,12 @@ function drawBody(
 	color: Color,
 	setbacks: number,
 	shade: number,
+	shape: BodyShape = "box",
 ): { x: number; y: number; w: number; h: number } {
+	if (shape === "tree") {
+		drawTree(out, x, y, w, h, color);
+		return { x, y, w, h: 0 }; // no windows on a tree (the grid is empty anyway)
+	}
 	if (setbacks <= 0) {
 		out.rect(x, y, w, h, color);
 		shadeSegment(out, x, y, w, h, color, shade);
@@ -200,6 +206,28 @@ function shadeSegment(
 		{ at: 0, color: withAlpha(lit, shade * 0.4) },
 		{ at: 0.55, color: withAlpha(lit, 0) },
 	], true);
+}
+
+/** A tree silhouette: a slim trunk under a soft, lumpy canopy of overlapping discs. */
+function drawTree(
+	out: DisplayListBuilder,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: Color,
+): void {
+	const cx = x + w / 2;
+	const groundY = y + h;
+	const trunkW = Math.max(1, w * 0.16);
+	const trunkH = h * 0.42;
+	out.rect(cx - trunkW / 2, groundY - trunkH, trunkW, trunkH, color);
+	// Canopy: a central disc flanked by two smaller ones for an organic, non-circular crown.
+	const r = w * 0.5;
+	const cyTop = y + r * 0.9;
+	out.circle(cx, cyTop, r, color);
+	out.circle(cx - w * 0.28, cyTop + h * 0.1, r * 0.7, color);
+	out.circle(cx + w * 0.28, cyTop + h * 0.1, r * 0.7, color);
 }
 
 function drawRoof(

@@ -43,6 +43,7 @@ Deno.test("every emitted slot belongs to a known district", () => {
 		"residential",
 		"industrial",
 		"park",
+		"countryside",
 	]);
 	const stream = new DistrictStream(createRng("z"));
 	for (let i = 0; i < 500; i++) assert(known.has(stream.next().district));

@@ -13,13 +13,14 @@
 import type { Rng } from "../../engine/math/rng.ts";
 import type { BuildingKind } from "../buildings/kinds.ts";
 
-/** The zoning districts. */
+/** The zoning districts. `countryside` is biome-only (never reached without the journey on). */
 export type District =
 	| "downtown"
 	| "commercial"
 	| "residential"
 	| "industrial"
-	| "park";
+	| "park"
+	| "countryside";
 
 interface DistrictRule {
 	/** Archetypes allowed here, and their relative weights. `null` = an open gap (park). */
@@ -76,6 +77,25 @@ const RULES: Record<District, DistrictRule> = {
 		next: ["downtown", "commercial", "residential", "industrial"],
 		nextWeights: [3, 3, 3, 2],
 	},
+	// Biome-only: reached solely via BIOME_SUCCESSORS when the journey is on. Trees, the odd
+	// farmhouse, barns and silos, with wide open gaps between them.
+	countryside: {
+		kinds: ["tree", "house", "barn", "silo", null],
+		kindWeights: [5, 2, 2, 1, 3],
+		gap: [0.03, 0.1],
+		run: [4, 9],
+		next: ["countryside", "residential", "park"],
+		nextWeights: [4, 2, 2],
+	},
+};
+
+/**
+ * Successor districts reachable ONLY via the biome journey (never listed in any base `next`), so
+ * they appear solely when `variety > 0`. Keyed by source district → `[district, base weight]`.
+ */
+const BIOME_SUCCESSORS: Partial<Record<District, [District, number][]>> = {
+	residential: [["countryside", 4]],
+	park: [["countryside", 4]],
 };
 
 /** One emitted slot: a building archetype (or `null` for open space) plus the gap after it. */
@@ -95,6 +115,7 @@ const URBANISM: Record<District, number> = {
 	residential: 0.38,
 	industrial: 0.28,
 	park: 0.12,
+	countryside: 0.18,
 };
 
 /**
@@ -150,19 +171,33 @@ export class DistrictStream {
 	 */
 	next(urbanism = 0.5, variety = 0): DistrictSlot {
 		if (this.#remaining <= 0) {
-			const rule = RULES[this.#district];
-			const weights = variety > 0
-				? rule.next.map((d, i) =>
-					biasWeight(rule.nextWeights[i], URBANISM[d], urbanism, variety)
-				)
-				: rule.nextWeights;
-			this.#district = this.#rng.weighted(rule.next, weights);
+			this.#district = this.#chooseNext(urbanism, variety);
 			this.#remaining = this.#rollRun(this.#district);
 		}
 		this.#remaining--;
 		const rule = RULES[this.#district];
 		const kind = this.#rng.weighted(rule.kinds, rule.kindWeights);
 		return { kind, gap: this.#rollGap(rule), district: this.#district };
+	}
+
+	/**
+	 * Pick the next district. With `variety = 0` this is exactly the base FSM transition (so the
+	 * uniform city is reproduced byte-for-byte). With the journey on it extends the legal successors
+	 * with any biome-only districts reachable from here, then biases the whole set toward the local
+	 * urbanism — and `weighted()` always draws once, so determinism is preserved either way.
+	 */
+	#chooseNext(urbanism: number, variety: number): District {
+		const rule = RULES[this.#district];
+		if (variety <= 0) return this.#rng.weighted(rule.next, rule.nextWeights);
+		const extra = BIOME_SUCCESSORS[this.#district];
+		const cands = extra ? [...rule.next, ...extra.map((e) => e[0])] : rule.next;
+		const base = extra
+			? [...rule.nextWeights, ...extra.map((e) => e[1])]
+			: rule.nextWeights;
+		const weights = cands.map((d, i) =>
+			biasWeight(base[i], URBANISM[d], urbanism, variety)
+		);
+		return this.#rng.weighted(cands, weights);
 	}
 
 	/**

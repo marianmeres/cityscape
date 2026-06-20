@@ -45,6 +45,10 @@ const SUBSTITUTE: Record<BuildingKind, BuildingKind> = {
 	midrise: "house",
 	house: "house",
 	factory: "midrise",
+	// Rural kinds are already short — they stay as-is on every band.
+	tree: "tree",
+	barn: "barn",
+	silo: "silo",
 };
 
 const GEN_MARGIN = 340;

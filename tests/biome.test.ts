@@ -103,6 +103,35 @@ Deno.test("the journey biases the district mix toward the local urbanism", () =>
 	);
 });
 
+Deno.test("rural districts/kinds appear only with the journey on", () => {
+	const rural = new Set(["tree", "barn", "silo"]);
+	// variety=0: the uniform city is untouched — never countryside, never a rural kind.
+	for (const seed of ["a", "b", "c", "d"]) {
+		const s = new DistrictStream(createRng(seed));
+		for (let i = 0; i < 3000; i++) {
+			const slot = s.next();
+			assert(slot.district !== "countryside", "countryside leaked at variety=0");
+			assert(
+				!(slot.kind && rural.has(slot.kind)),
+				`rural kind ${slot.kind} leaked at variety=0`,
+			);
+		}
+	}
+	// variety=1 at a deep-country reading: countryside and its rural kinds do appear.
+	let sawCountryside = false;
+	let sawRural = false;
+	for (const seed of ["a", "b", "c", "d"]) {
+		const s = new DistrictStream(createRng(seed));
+		for (let i = 0; i < 3000; i++) {
+			const slot = s.next(0.05, 1);
+			if (slot.district === "countryside") sawCountryside = true;
+			if (slot.kind && rural.has(slot.kind)) sawRural = true;
+		}
+	}
+	assert(sawCountryside, "expected countryside with the journey on at low urbanism");
+	assert(sawRural, "expected rural kinds with the journey on at low urbanism");
+});
+
 Deno.test("BiomeField is deterministic, bounded, varied, and reversible", () => {
 	const a = new BiomeField(12345);
 	const b = new BiomeField(12345);

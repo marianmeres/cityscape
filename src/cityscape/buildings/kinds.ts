@@ -13,14 +13,20 @@
 import type { Rng } from "../../engine/math/rng.ts";
 import { clamp } from "../../engine/math/ease.ts";
 
-/** The building archetypes. */
+/** The building archetypes. The last three are rural, surfaced only by the biome journey. */
 export type BuildingKind =
 	| "skyscraper"
 	| "tower"
 	| "midrise"
 	| "house"
 	| "factory"
-	| "landmark";
+	| "landmark"
+	| "tree"
+	| "barn"
+	| "silo";
+
+/** How a silhouette body is drawn: a stacked box (the default) or an organic tree. */
+export type BodyShape = "box" | "tree";
 
 /** Roof / crown features drawn atop the silhouette. */
 export type RoofKind =
@@ -39,6 +45,8 @@ export type RoofKind =
 /** A renderer-agnostic description of one building's geometry. */
 export interface BuildingSpec {
 	kind: BuildingKind;
+	/** Body silhouette shape (default `"box"` when omitted). */
+	shape?: BodyShape;
 	/**
 	 * Width in **viewport-height units** (same scale as {@link BuildingSpec.height}), so the
 	 * silhouette's aspect ratio is realistic and constant at any window size. A skyscraper ~0.12.
@@ -164,6 +172,50 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			cols,
 			rows,
 			setbacks: rng.weighted([0, 1], [2, 3]),
+		};
+	},
+	// ── Rural archetypes (biome journey only) ──────────────────────────
+	tree(rng) {
+		const height = rng.float(0.05, 0.13);
+		const width = height * rng.float(0.7, 1.1);
+		return {
+			kind: "tree",
+			shape: "tree",
+			width,
+			height,
+			roof: "flat",
+			roofScale: 0,
+			cols: 0,
+			rows: 0,
+			setbacks: 0,
+		};
+	},
+	barn(rng) {
+		const height = rng.float(0.06, 0.11);
+		const width = height * rng.float(1.6, 2.6); // long & low
+		return {
+			kind: "barn",
+			width,
+			height,
+			roof: "pitched",
+			roofScale: rng.float(0.7, 1),
+			cols: rng.int(0, 3),
+			rows: rng.int(0, 2),
+			setbacks: 0,
+		};
+	},
+	silo(rng) {
+		const height = rng.float(0.1, 0.18);
+		const width = height * rng.float(0.28, 0.42); // tall & narrow
+		return {
+			kind: "silo",
+			width,
+			height,
+			roof: rng.weighted(["dome", "barrel"] as RoofKind[], [3, 2]),
+			roofScale: rng.float(0.6, 1),
+			cols: 0,
+			rows: 0,
+			setbacks: 0,
 		};
 	},
 };
