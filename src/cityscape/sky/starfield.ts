@@ -63,10 +63,18 @@ export class Starfield implements Entity<CityEnv> {
 		const t = this.#time * 0.002;
 		for (let i = 0; i < shown; i++) {
 			const s = this.#stars[i];
-			const sx = wrap(s.x - scroll, this.#tileW);
-			if (sx > width) continue;
 			const twinkle = 0.65 + 0.35 * Math.sin(t + s.tw);
-			out.circle(sx, s.yFrac * height, s.size, withAlpha(star, s.base * twinkle));
+			const color = withAlpha(star, s.base * twinkle);
+			const y = s.yFrac * height;
+			// Repeat the fixed-width tile across the whole viewport: on screens wider than
+			// `#tileW` a single tile leaves the right side bare, so tile until we pass `width`.
+			for (
+				let sx = wrap(s.x - scroll, this.#tileW);
+				sx < width;
+				sx += this.#tileW
+			) {
+				out.circle(sx, y, s.size, color);
+			}
 		}
 	}
 }
