@@ -23,6 +23,7 @@ import { FlyerDirector } from "../sky/flyer.ts";
 import { BirdDirector } from "../sky/bird.ts";
 import { Water } from "../sky/water.ts";
 import { Shore } from "../sky/shore.ts";
+import { TrafficDirector } from "../sky/traffic.ts";
 import { LayerSpawner } from "./spawner.ts";
 import { BiomeField } from "./biome.ts";
 
@@ -90,6 +91,11 @@ export function buildSkyline(
 	const shore = new Layer<CityEnv>("shore", 1.1);
 	shore.add(new Shore(rng.fork("shore")));
 	world.addLayer(shore);
+
+	// ── Traffic: sparse headlights crossing the embankment, drawn in front of the shore ──
+	const traffic = new Layer<CityEnv>("traffic", 1.12);
+	traffic.add(new TrafficDirector(rng.fork("traffic")));
+	world.addLayer(traffic);
 
 	return { spawners };
 }

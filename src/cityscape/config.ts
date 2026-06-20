@@ -94,6 +94,7 @@ export interface CityscapeConfig {
 	cloudChance: number;
 	birdChance: number;
 	flyerChance: number;
+	trafficChance: number;
 	// Audio
 	audioEnabled: boolean;
 	audioVolume: number;
@@ -383,6 +384,17 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		step: 0.05,
 		default: 0.9,
 		help: "Rare crossers: planes, satellites, shooting stars.",
+	},
+	{
+		key: "trafficChance",
+		label: "Traffic",
+		group: "Sky",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.6,
+		help: "Sparse headlights crossing the waterfront. Needs a shore to drive on.",
 	},
 	// ── Audio ──────────────────────────────────────────────────────────
 	{
