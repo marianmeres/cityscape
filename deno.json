@@ -1,44 +1,55 @@
 {
-	"name": "@marianmeres/cityscape",
-	"version": "0.0.1",
-	"exports": {
-		".": "./src/mod.ts",
-		"./engine": "./src/engine/mod.ts",
-		"./cityscape": "./src/cityscape/mod.ts",
-		"./render/canvas": "./src/render/canvas/mod.ts",
-		"./render/ascii": "./src/render/ascii/mod.ts",
-		"./ui": "./src/ui/mod.ts"
-	},
-	"compilerOptions": {
-		"lib": ["deno.ns", "dom", "dom.iterable", "esnext"]
-	},
-	"publish": {
-		"exclude": ["docs", "tmp", "example", ".env.example", "scripts"]
-	},
-	"tasks": {
-		"test": "deno test -A",
-		"test:watch": "deno test -A --watch",
-		"check": "deno check src/ tests/",
-		"example:build": "deno run -A jsr:@marianmeres/deno-build --root example --entry main.ts --outdir example/dist",
-		"example:watch": "deno run -A jsr:@marianmeres/deno-build --root example --entry main.ts --outdir example/dist --watch --watch-dir src",
-		"theme:build": "deno run -A example/theme/_generate.ts",
-		"npm:build": "deno run -A scripts/build-npm.ts",
-		"npm:publish": "deno run -A scripts/build-npm.ts && cd ./.npm-dist && npm publish --access=public",
-		"release": "deno run -A jsr:@marianmeres/deno-release",
-		"publish": "deno publish && deno task npm:publish",
-		"rp": "deno task release -y && deno task publish",
-		"rpm": "deno task release minor -y && deno task publish"
-	},
-	"imports": {
-		"@marianmeres/design-tokens": "jsr:@marianmeres/design-tokens@^1",
-		"@marianmeres/npmbuild": "jsr:@marianmeres/npmbuild@^1",
-		"@marianmeres/vanilla": "jsr:@marianmeres/vanilla@^1.8.0",
-		"@std/assert": "jsr:@std/assert@^1"
-	},
-	"fmt": {
-		"useTabs": true,
-		"lineWidth": 90,
-		"indentWidth": 4,
-		"proseWrap": "preserve"
-	}
+  "name": "@marianmeres/cityscape",
+  "version": "1.0.0",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./engine": "./src/engine/mod.ts",
+    "./cityscape": "./src/cityscape/mod.ts",
+    "./render/canvas": "./src/render/canvas/mod.ts",
+    "./render/ascii": "./src/render/ascii/mod.ts",
+    "./ui": "./src/ui/mod.ts"
+  },
+  "compilerOptions": {
+    "lib": [
+      "deno.ns",
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ]
+  },
+  "publish": {
+    "exclude": [
+      "docs",
+      "tmp",
+      "example",
+      ".env.example",
+      "scripts"
+    ]
+  },
+  "tasks": {
+    "test": "deno test -A",
+    "test:watch": "deno test -A --watch",
+    "check": "deno check src/ tests/",
+    "example:build": "deno run -A jsr:@marianmeres/deno-build --root example --entry main.ts --outdir example/dist",
+    "example:watch": "deno run -A jsr:@marianmeres/deno-build --root example --entry main.ts --outdir example/dist --watch --watch-dir src",
+    "theme:build": "deno run -A example/theme/_generate.ts",
+    "npm:build": "deno run -A scripts/build-npm.ts",
+    "npm:publish": "deno run -A scripts/build-npm.ts && cd ./.npm-dist && npm publish --access=public",
+    "release": "deno run -A jsr:@marianmeres/deno-release",
+    "publish": "deno publish && deno task npm:publish",
+    "rp": "deno task release -y && deno task publish",
+    "rpm": "deno task release minor -y && deno task publish"
+  },
+  "imports": {
+    "@marianmeres/design-tokens": "jsr:@marianmeres/design-tokens@^1",
+    "@marianmeres/npmbuild": "jsr:@marianmeres/npmbuild@^1",
+    "@marianmeres/vanilla": "jsr:@marianmeres/vanilla@^1.8.0",
+    "@std/assert": "jsr:@std/assert@^1"
+  },
+  "fmt": {
+    "useTabs": true,
+    "lineWidth": 90,
+    "indentWidth": 4,
+    "proseWrap": "preserve"
+  }
 }
