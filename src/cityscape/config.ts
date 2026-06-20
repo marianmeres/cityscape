@@ -92,7 +92,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 120,
 		step: 1,
-		default: 120,
+		default: 30,
 		unit: "u/s",
 		help: "Scroll speed. 0 holds the city still.",
 	},
@@ -210,8 +210,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		max: 1,
 		step: 0.05,
 		default: 0.5,
-		help:
-			"Soft top-light on near buildings so silhouettes read as volumes. 0 = flat.",
+		help: "Soft top-light on near buildings so silhouettes read as volumes. 0 = flat.",
 	},
 	{
 		key: "neon",
@@ -233,8 +232,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		max: 1,
 		step: 0.05,
 		default: 0.3,
-		help:
-			"Drift between dense city and open outskirts as you scroll. 0 = uniform city.",
+		help: "Drift between dense city and open outskirts as you scroll. 0 = uniform city.",
 	},
 	{
 		key: "biomeScale",
@@ -245,8 +243,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		max: 12,
 		step: 0.5,
 		default: 4.5,
-		help:
-			"How long each city/outskirts stretch lasts (world units). Higher = longer.",
+		help: "How long each city/outskirts stretch lasts (world units). Higher = longer.",
 	},
 	// ── Mood ───────────────────────────────────────────────────────────
 	{
@@ -255,7 +252,10 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		group: "Mood",
 		type: "select",
 		default: "dawn",
-		options: PALETTE_NAMES.map((n) => ({ value: n, label: PALETTES[n].label })),
+		options: PALETTE_NAMES.map((n) => ({
+			value: n,
+			label: PALETTES[n].label,
+		})),
 	},
 	{
 		key: "moodCycleSeconds",
@@ -438,7 +438,9 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 ];
 
 /** Build the default config object from the schema's `default`s. */
-export function buildDefaults(schema: ConfigField[] = CONFIG_SCHEMA): CityscapeConfig {
+export function buildDefaults(
+	schema: ConfigField[] = CONFIG_SCHEMA,
+): CityscapeConfig {
 	return buildSchemaDefaults<CityscapeConfig>(schema);
 }
 

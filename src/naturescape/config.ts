@@ -99,7 +99,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 120,
 		step: 1,
-		default: 28,
+		default: 30,
 		unit: "u/s",
 		help: "Scroll speed. 0 holds the landscape still.",
 	},
@@ -228,8 +228,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		max: 1,
 		step: 0.05,
 		default: 0.4,
-		help:
-			"Drift between meadow, forest and alpine as you scroll. 0 = uniform landscape.",
+		help: "Drift between meadow, forest and alpine as you scroll. 0 = uniform landscape.",
 	},
 	{
 		key: "biomeScale",
