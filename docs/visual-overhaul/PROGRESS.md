@@ -13,15 +13,15 @@ A fresh conversation should read this file first, then the relevant `NN-*.md` se
 
 Branch: `visual-overhaul`
 
-| # | Task                                                    | Source                         | Status | Commit |
-| - | ------------------------------------------------------- | ------------------------------ | ------ | ------ |
-| 1 | Directional face-shading on near buildings              | [01](./01-quick-wins.md) #1    | ✅     | `visual-overhaul` (uncommitted) |
-| 2 | Window variety (lit floors, penthouse, signage, blinds) | [01](./01-quick-wins.md) #2    | ✅     | `visual-overhaul` (uncommitted) |
-| 3 | Curved roof features (barrel/deco/water-tower)          | [01](./01-quick-wins.md) #3    | ✅     | `visual-overhaul` (uncommitted) |
-| 4 | Vignette + grain post-pass                              | [01](./01-quick-wins.md) #4    | ✅     | `visual-overhaul` (uncommitted) |
-| 5 | `BiomeField` scaffold (city kinds only)                 | [02](./02-biome-journey.md) #1 | ⬜     | —      |
+| # | Task                                                    | Source                         | Status | Commit                                      |
+| - | ------------------------------------------------------- | ------------------------------ | ------ | ------------------------------------------- |
+| 1 | Directional face-shading on near buildings              | [01](./01-quick-wins.md) #1    | ✅     | `478836b`                                   |
+| 2 | Window variety (lit floors, penthouse, signage, blinds) | [01](./01-quick-wins.md) #2    | ✅     | `478836b`                                   |
+| 3 | Curved roof features (barrel/deco/water-tower)          | [01](./01-quick-wins.md) #3    | ✅     | `478836b`                                   |
+| 4 | Vignette + grain post-pass                              | [01](./01-quick-wins.md) #4    | ✅     | `478836b`                                   |
+| 5 | `BiomeField` scaffold (city kinds only)                 | [02](./02-biome-journey.md) #1 | ✅     | `0d9fb5d`                                   |
 
-> Task 5 unblocked 2026-06-20 (decisions logged below): noise-on-urbanism-axis, variety off by default.
+> First sprint complete. Task 5 verified via a 6-probe adversarial workflow (see Decisions log).
 
 ## Backlog (ranked, post-sprint)
 
@@ -50,6 +50,8 @@ Branch: `visual-overhaul`
 - **2026-06-20** — Default `biomeVariety` = **uniform city** (journey opt-in via the slider) — protects the curated snapshot's first impression.
 - **2026-06-20** — Task 2 taste call: window-variety features (lit floor, penthouse warmth, signage, blinds) are **always-on but subtle/rare, no knob** — avoids plumbing config through `reset()→seed()` and panel bloat; reconsider a knob if it reads too busy.
 - **2026-06-20** — Fixed a **pre-existing** starfield bug found during sprint review: stars were confined to a 1600px tile, leaving viewports wider than 1600 bare on the right. Now tiles across the full width; regression test in `tests/starfield.test.ts`. (Not a planned task; unrelated to the quick-wins changes.)
+- **2026-06-20** — Task 5 adversarially verified (6-probe workflow): determinism (journey on), cross-layer coherence, reverse-scroll/extreme-knob bounding, live-knobs-not-structural, and visible macro structure all **pass**. One finding accepted-by-design: `biomeVariety` drives a _stateful_ FSM, so a live `0→1→0` slider round-trip does **not** restore the exact untouched-seed city (only construction/permalink loads are byte-exact). Chose to **document** rather than make the knob structural (which would rebuild the world on every slider tick — jarring); the divergence is unobservable in the infinite scroll. Scoped the claim in `biome.ts`/`district.ts`/`tests/biome.test.ts`.
+- **2026-06-20** — Task 5 tuning note (deferred to task 16): the journey is real but slow at default `biomeScale=5` (~3.3 min/cycle). Lowering the default (≈2–3) makes it more legible. Left at 5 pending a visual review rather than guessing blind; journey ships off by default so no snapshot impact.
 
 ## How to resume (for a fresh conversation)
 

@@ -103,14 +103,28 @@ Claims verified against the codebase at commit 5997d8f. Planning artifact; no co
   `mound` buildings (cheap, reuses everything) or a dedicated continuous terrain entity (smoother,
   more work). Recommend discrete mounds for v1.
 
-## Open questions / decisions needed
+## Scaffold (2a) — implemented & verified ✅
 
-- **Zoning mechanism** — noise-on-an-urbanism-axis (recommended: reversible, naturally gradiented)
-  vs a sequential FSM with cached band boundaries (more control, more state, reverse-scroll edge
-  cases)?
+Landed: a shared [`BiomeField`](../../src/cityscape/generation/biome.ts) (value-noise urbanism axis,
+no RNG) biases District transitions in [`district.ts`](../../src/cityscape/generation/district.ts);
+the [spawner](../../src/cityscape/generation/spawner.ts) samples one shared field per band at a
+near-plane-converted coordinate; knobs `biomeVariety` (default **0**) + `biomeScale` (default 5).
+A 6-probe adversarial verification confirmed: cross-layer coherence (all bands share one journey),
+determinism with the journey on, reverse-scroll/extreme-knob bounding, live-knobs-don't-rebuild,
+and visible macro structure.
+
+- **Resolved — zoning mechanism:** value-noise on an urbanism axis (chosen).
+- **Resolved — default `biomeVariety`:** uniform city by default (journey opt-in); the curated
+  snapshot is byte-unchanged (golden test).
+- **Accepted by design — live-toggle path-dependence:** because the District FSM is stateful and
+  `biomeVariety` is a live (non-structural) knob, a `0→1→0` slider round-trip does not restore the
+  exact untouched-seed city. Documented in `biome.ts`; not made structural (that would rebuild the
+  world per slider tick). Construction/permalink loads remain byte-exact.
+- **Open — legibility tuning (for task 16):** the journey is real but slow at `biomeScale=5`
+  (~3.3 min/cycle). Consider lowering the default (≈2–3) after a visual review.
+
+## Open questions / decisions needed (for 2b–2d)
+
 - **Trees/hills representation** — new `Building` kinds + a `drawBody` shape branch (recommended:
   reuses pooling/spawner/recycle) vs dedicated terrain entities?
 - **Coast** — v1 sparse-waterfront fake (recommended) vs a positional/dynamic waterline (defer)?
-- **Default `biomeVariety`** — ship the curated navy snapshot **uniform** (variety off by default,
-  journey opt-in) vs ship the journey on by default? This directly affects the shipped first
-  impression and the snapshot re-tune.
