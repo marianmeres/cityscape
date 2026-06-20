@@ -123,8 +123,22 @@ and visible macro structure.
 - **Open — legibility tuning (for task 16):** the journey is real but slow at `biomeScale=5`
   (~3.3 min/cycle). Consider lowering the default (≈2–3) after a visual review.
 
-## Open questions / decisions needed (for 2b–2d)
+## Countryside content (2b) — implemented & verified ✅
 
-- **Trees/hills representation** — new `Building` kinds + a `drawBody` shape branch (recommended:
-  reuses pooling/spawner/recycle) vs dedicated terrain entities?
+Landed (`9e728b3`): rural `BuildingKind`s `tree`/`barn`/`silo` + a `shape: "box" | "tree"`
+discriminator on `BuildingSpec`; `drawTree` (trunk + lumpy canopy) in
+[building.ts](../../src/cityscape/buildings/building.ts); a biome-only `countryside` District in
+[district.ts](../../src/cityscape/generation/district.ts) reached solely via `BIOME_SUCCESSORS`
+when `variety > 0`. A 5-probe adversarial pass confirmed `variety=0` byte-identity (vs the pre-task
+commit), low-urbanism clustering (4.4×), render robustness, determinism, and front-layer integrity.
+
+- **Resolved — trees representation:** new `Building` kinds + a `drawBody` shape branch (chosen;
+  reuses the pool/spawner/recycle path). Far-layer rolling `hill`/`mound` terrain stays for 2d.
+- **Not yet eyeballed:** the tree/barn/silo _geometry_ is correctness-verified but wants a visual
+  review (re-tune in task 16 if the shapes read oddly at parallax scale).
+
+## Open questions / decisions needed (for 2c–2d)
+
 - **Coast** — v1 sparse-waterfront fake (recommended) vs a positional/dynamic waterline (defer)?
+- **Far-layer terrain (2d)** — discrete `mound` hills (cheap, reuses the shape branch) vs a
+  continuous ridgeline entity?
