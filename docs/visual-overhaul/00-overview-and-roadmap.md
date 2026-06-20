@@ -23,6 +23,15 @@ Claims verified against the codebase at commit 5997d8f. Planning artifact; no co
 > [01](./01-quick-wins.md)–[04](./04-atmosphere-polish.md) for verified detail; track status in
 > [PROGRESS.md](./PROGRESS.md).
 
+## Status — code-complete ✅ (2026-06-20)
+
+All 15 features shipped on branch `visual-overhaul` (tasks 1–15), each `deno check`/`test`-green,
+`fmt`-clean, and verified (adversarial workflows on the biome scaffold + countryside; worktree
+byte-comparisons proving `biomeVariety = 0` is byte-identical to the original city; per-feature
+gating/NaN/determinism probes). A pre-existing starfield bug was fixed along the way. The one
+remaining item is **task 16 — re-tune the curated default snapshot**, which is owner-gated (needs
+eyes on screen). See [PROGRESS.md](./PROGRESS.md) for the full ledger.
+
 ## Top recommendations across all dimensions (ranked)
 
 | Rank | Recommendation                                            | Dimension                          | Value   | Effort | Risk | Why now                                                     |

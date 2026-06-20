@@ -66,9 +66,15 @@ Claims verified against the codebase at commit 5997d8f. Planning artifact; no co
   enabled only for certain palettes (navy/vaporwave). **Effort M / Value low–med / Risk med** —
   easy to overdo; keep faint and rare.
 
-## Open questions / decisions needed
+## Implemented ✅ — all five landed
 
-- **Window reflections** — couple `Water` to real near-layer lit density (accurate) vs richer
-  procedural smears (cheap)? Recommend cheap first, upgrade only if it reads flat.
-- **Neon scope** — all palettes vs vaporwave/metropolis only (recommended)?
-- **Aurora** — which palettes, and is it worth it at all vs cut for scope? Lowest priority here.
+| # | Feature                     | Commit    | Resolution                                                                                                  |
+| - | --------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| 1 | Ground fog / mist           | `3c59046` | A soft mist band at the waterline, behind the shore lamps/traffic. Knob `fog` (0.3).                        |
+| 2 | Neon rooftop signs          | `d0695fe` | ~16% of near tall city buildings, hue-cycling. Knob `neon` (0.4). All palettes (not vaporwave-only).        |
+| 3 | Window reflections in water | `59dde70` | Chose the **cheap** option: 12 procedural smears tinted by `mood.window`, scaled by lit density. Always on. |
+| 4 | Drifting airship            | `5770da5` | A rare slow blimp FlyerType (rides `flyerChance`, no new knob).                                             |
+| 5 | Aurora ribbon               | `5f8e038` | **Palette-gated to navy + vaporwave** (hidden on ink/dawn). Knob `aurora` (0.3).                            |
+
+> **Re-tune note (task 16):** neon, aurora, and the extra water reflections ship _on_ but were added
+> after the owner's last visual review — candidates to dial down via their knobs if too loud.

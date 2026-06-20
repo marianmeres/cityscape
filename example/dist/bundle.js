@@ -385,6 +385,17 @@ const CONFIG_SCHEMA = [
         help: "Soft top-light on near buildings so silhouettes read as volumes. 0 = flat."
     },
     {
+        key: "neon",
+        label: "Neon signs",
+        group: "World",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.4,
+        help: "Rare hue-cycling rooftop signs on near city buildings. 0 = none."
+    },
+    {
         key: "biomeVariety",
         label: "Biome journey",
         group: "World",
@@ -554,6 +565,17 @@ const CONFIG_SCHEMA = [
         step: 0.05,
         default: 0.3,
         help: "Low mist hazing the base of the skyline. 0 = clear."
+    },
+    {
+        key: "aurora",
+        label: "Aurora",
+        group: "Sky",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.3,
+        help: "Faint sky shimmer (navy & vaporwave palettes only). 0 = off."
     },
     {
         key: "audioEnabled",
@@ -1265,6 +1287,9 @@ class Building {
     #time = 0;
     #phase = 0;
     #shade = 0;
+    #neon = 0;
+    #signRoll = 1;
+    #signHue = 0;
     constructor(depth, rng){
         this.depth = depth;
         this.#rng = rng;
@@ -1284,6 +1309,8 @@ class Building {
         this.#phase = this.#rng.next();
         this.#grid = new WindowGrid(spec.cols, spec.rows);
         this.#grid.seed(this.#rng, litChance);
+        this.#signRoll = this.#rng.next();
+        this.#signHue = this.#rng.float(0, 360);
     }
     flash() {
         this.#grid.seed(this.#rng, 0.85);
@@ -1296,6 +1323,7 @@ class Building {
         this.#color = silhouetteColor(mood, this.depth);
         this.#window = mood.window;
         this.#shade = this.depth > 0.78 ? cfg.buildingShading : 0;
+        this.#neon = cfg.neon;
         this.#grid.update(ctx.dt, this.#rng, ctx.env.config);
     }
     draw(ctx) {
@@ -1311,11 +1339,39 @@ class Building {
         this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
         const beaconRef = sw / spec.width;
         drawRoof(out, spec.roof, sx, topY, sw, spec.roofScale, this.#color, this.#time, this.#phase, this.depth, beaconRef);
+        if (this.#neon > 0 && this.depth > 0.8 && this.#signRoll < 0.16 && SIGN_KINDS.has(spec.kind)) {
+            drawNeon(out, sx, topY, sw, this.#signHue, this.#time, this.#neon);
+        }
     }
+}
+const SIGN_KINDS = new Set([
+    "skyscraper",
+    "tower",
+    "landmark",
+    "midrise"
+]);
+function drawNeon(out, x, topY, w, baseHue, time, intensity) {
+    const signW = Math.max(3, w * 0.42);
+    const signH = Math.max(2, w * 0.12);
+    const cx = x + w / 2;
+    const y = topY - signH;
+    const hue = (baseHue + time * 0.008) % 360;
+    const col = hsl(hue, 0.85, 0.62);
+    out.glow(cx, y + signH / 2, signW * 0.95, withAlpha(col, 0.5 * intensity), 0.9);
+    out.rect(cx - signW / 2, y, signW, signH, withAlpha(col, 0.85 * intensity));
 }
 function drawBody(out, x, y, w, h, color, setbacks, shade, shape = "box") {
     if (shape === "tree") {
         drawTree(out, x, y, w, h, color);
+        return {
+            x,
+            y,
+            w,
+            h: 0
+        };
+    }
+    if (shape === "mound") {
+        drawMound(out, x, y, w, h, color);
         return {
             x,
             y,
@@ -1379,6 +1435,20 @@ function drawTree(out, x, y, w, h, color) {
     out.circle(cx, cyTop, r1, color);
     out.circle(cx - w * 0.28, cyTop + h * 0.1, r1 * 0.7, color);
     out.circle(cx + w * 0.28, cyTop + h * 0.1, r1 * 0.7, color);
+}
+function drawMound(out, x, y, w, h, color) {
+    const cx = x + w / 2;
+    const baseY = y + h;
+    const r1 = (w * w / 4 + h * h) / (2 * h);
+    const cyc = y + r1;
+    const pts = [];
+    for(let i = 0; i <= 14; i++){
+        const px = x + w * i / 14;
+        const dx = px - cx;
+        pts.push(px, cyc - Math.sqrt(Math.max(0, r1 * r1 - dx * dx)));
+    }
+    pts.push(x + w, baseY, x, baseY);
+    out.polygon(pts, color);
 }
 function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth, beaconRef) {
     const cx = x + w / 2;
@@ -1579,6 +1649,66 @@ class SkyBackdrop {
         ], true);
     }
 }
+const PALETTE_HUE = {
+    navy: 155,
+    vaporwave: 295
+};
+class Aurora {
+    depth = 0.015;
+    bounds = {
+        x: -Infinity,
+        width: Infinity
+    };
+    alive = true;
+    #noise;
+    #amount = 0;
+    #hue = 155;
+    #active = false;
+    #time = 0;
+    constructor(rng){
+        this.#noise = createNoise1D((rng.seed ^ 0xa05a) >>> 0, 2);
+    }
+    update(ctx) {
+        const cfg = ctx.env.config;
+        this.#amount = cfg.aurora;
+        const hue = PALETTE_HUE[cfg.palette];
+        this.#active = hue !== undefined && this.#amount > 0.001;
+        if (hue !== undefined) this.#hue = hue;
+        this.#time = ctx.time;
+    }
+    draw(ctx) {
+        if (!this.#active) return;
+        const { out, width, height } = ctx;
+        const bandTop = height * 0.05;
+        const bandH = height * 0.3;
+        const t = this.#time;
+        for(let i = 0; i < 20; i++){
+            const fx = (i + 0.5) / 20;
+            const n = this.#noise.at(fx * 4 + t * 0.00004);
+            const drift = Math.sin(t * 0.0002 + i * 1.3) * width * 0.012;
+            const x = fx * width + drift;
+            const w = width / 20 * 1.4;
+            const h = bandH * (0.35 + n * 0.65);
+            const top = bandTop + (bandH - h) * this.#noise.at(fx * 7 + 3.1);
+            const a = this.#amount * 0.16 * (0.25 + n * 0.75);
+            const col = hsl(this.#hue + (fx - 0.5) * 40, 0.7, 0.6);
+            out.gradient(x - w / 2, top, w, h, [
+                {
+                    at: 0,
+                    color: withAlpha(col, 0)
+                },
+                {
+                    at: 0.5,
+                    color: withAlpha(col, a)
+                },
+                {
+                    at: 1,
+                    color: withAlpha(col, 0)
+                }
+            ], true);
+        }
+    }
+}
 class Starfield {
     depth = 0.02;
     bounds = {
@@ -1734,6 +1864,8 @@ class CloudField {
 }
 const NAV_RED = rgb(255, 80, 70);
 const NAV_GREEN = rgb(90, 255, 120);
+const BLIMP = rgb(40, 46, 62);
+const GONDOLA = rgb(255, 200, 130);
 class FlyerDirector {
     depth = 0.06;
     bounds = {
@@ -1769,11 +1901,13 @@ class FlyerDirector {
         const type = this.#rng.weighted([
             "plane",
             "satellite",
-            "shooting-star"
+            "shooting-star",
+            "airship"
         ], [
             3,
             2,
-            2
+            2,
+            1
         ]);
         const dir = this.#rng.bool() ? 1 : -1;
         const x0 = dir > 0 ? -0.05 : 1.05;
@@ -1790,11 +1924,12 @@ class FlyerDirector {
                 y1: this.#rng.float(0.35, 0.55)
             };
         }
-        const y = this.#rng.float(0.08, type === "plane" ? 0.3 : 0.22);
+        const y = this.#rng.float(0.08, type === "plane" ? 0.3 : type === "airship" ? 0.34 : 0.22);
+        const speed = type === "plane" ? this.#rng.float(0.00012, 0.0002) : type === "airship" ? this.#rng.float(0.00003, 0.00006) : this.#rng.float(0.00008, 0.00014);
         return {
             type,
             progress: 0,
-            speed: type === "plane" ? this.#rng.float(0.00012, 0.0002) : this.#rng.float(0.00008, 0.00014),
+            speed,
             x0,
             y0: y,
             x1,
@@ -1824,6 +1959,20 @@ class FlyerDirector {
         if (f.type === "satellite") {
             const blink = 0.55 + 0.45 * Math.sin(this.#time * 0.006);
             out.circle(x, y, 1.4, withAlpha(star, blink));
+            return;
+        }
+        if (f.type === "airship") {
+            const len = Math.max(8, width * 0.04);
+            const bh = len * 0.42;
+            for(let i = -2; i <= 2; i++){
+                const br = bh * (1 - Math.abs(i) * 0.16);
+                out.circle(x + i * len * 0.2, y, br, BLIMP);
+            }
+            const dir = f.x1 >= f.x0 ? 1 : -1;
+            out.circle(x - dir * len * 0.52, y - bh * 0.45, bh * 0.5, BLIMP);
+            const blink = 0.5 + 0.5 * Math.sin(this.#time * 0.004);
+            out.glow(x, y + bh * 0.6, bh * 1.6, withAlpha(GONDOLA, 0.4 * blink), 0.7);
+            out.circle(x, y + bh * 0.7, 1.2, withAlpha(GONDOLA, blink));
             return;
         }
         out.circle(x, y, 1.6, withAlpha(star, 0.5));
@@ -1893,6 +2042,8 @@ function drawBird(out, x, y, size, flap, color) {
     out.line(x - size, y + wing, x, y, Math.max(1, size * 0.18), color);
     out.line(x, y, x + size, y + wing, Math.max(1, size * 0.18), color);
 }
+const WARM_WIN = rgb(255, 200, 130);
+const COOL_WIN = rgb(200, 222, 255);
 class Water {
     depth = 1;
     bounds = {
@@ -1903,8 +2054,10 @@ class Water {
     #mood;
     #level = 0.33;
     #time = 0;
+    #litFactor = 0.4;
     #shimmer;
     #reflections;
+    #windowRefl;
     constructor(rng){
         this.#shimmer = Array.from({
             length: 6
@@ -1915,11 +2068,21 @@ class Water {
                 xFrac: rng.float(0.05, 0.95),
                 width: rng.float(0.01, 0.04)
             }));
+        this.#windowRefl = Array.from({
+            length: 12
+        }, ()=>({
+                xFrac: rng.float(0.02, 0.98),
+                width: rng.float(0.004, 0.016),
+                warm: rng.bool(0.6),
+                phase: rng.float(0, 6.283),
+                depth: rng.float(0.4, 0.85)
+            }));
     }
     update(ctx) {
         this.#mood = ctx.env.mood;
         this.#level = ctx.env.config.waterLevel;
         this.#time = ctx.time;
+        this.#litFactor = clamp(ctx.env.config.windowLightChance / 0.18, 0.25, 1.6);
     }
     draw(ctx) {
         if (this.#level <= 0.001) return;
@@ -1965,6 +2128,24 @@ class Water {
                 {
                     at: 1,
                     color: withAlpha(reflTone, 0)
+                }
+            ], true);
+        }
+        for (const r1 of this.#windowRefl){
+            const tint = mix(mood.window, r1.warm ? WARM_WIN : COOL_WIN, 0.4);
+            const x = r1.xFrac * width;
+            const w = Math.max(1, r1.width * width);
+            const shimmer = 0.5 + 0.5 * Math.sin(this.#time * 0.0016 + r1.phase);
+            const wob = Math.sin(this.#time * 0.0011 + r1.phase) * w * 0.6;
+            const a = 0.14 * shimmer * this.#litFactor;
+            out.gradient(x + wob, waterY, w, waterH * r1.depth, [
+                {
+                    at: 0,
+                    color: withAlpha(tint, a)
+                },
+                {
+                    at: 1,
+                    color: withAlpha(tint, 0)
                 }
             ], true);
         }
@@ -2399,6 +2580,21 @@ const BUILDING_GENERATORS = {
             rows: 0,
             setbacks: 0
         };
+    },
+    hill (rng) {
+        const height = rng.float(0.05, 0.13);
+        const width = height * rng.float(2.5, 5);
+        return {
+            kind: "hill",
+            shape: "mound",
+            width,
+            height,
+            roof: "flat",
+            roofScale: 0,
+            cols: 0,
+            rows: 0,
+            setbacks: 0
+        };
     }
 };
 function generateBuilding(kind, rng) {
@@ -2559,6 +2755,7 @@ const RULES = {
             "house",
             "barn",
             "silo",
+            "hill",
             null
         ],
         kindWeights: [
@@ -2566,6 +2763,7 @@ const RULES = {
             2,
             2,
             1,
+            2,
             3
         ],
         gap: [
@@ -2586,6 +2784,38 @@ const RULES = {
             2,
             2
         ]
+    },
+    coast: {
+        kinds: [
+            "hill",
+            "tree",
+            "house",
+            null
+        ],
+        kindWeights: [
+            2,
+            2,
+            1,
+            6
+        ],
+        gap: [
+            0.06,
+            0.16
+        ],
+        run: [
+            3,
+            7
+        ],
+        next: [
+            "coast",
+            "countryside",
+            "park"
+        ],
+        nextWeights: [
+            3,
+            2,
+            2
+        ]
     }
 };
 const BIOME_SUCCESSORS = {
@@ -2599,6 +2829,16 @@ const BIOME_SUCCESSORS = {
         [
             "countryside",
             4
+        ],
+        [
+            "coast",
+            2
+        ]
+    ],
+    countryside: [
+        [
+            "coast",
+            3
         ]
     ]
 };
@@ -2608,7 +2848,8 @@ const URBANISM = {
     residential: 0.38,
     industrial: 0.28,
     park: 0.12,
-    countryside: 0.18
+    countryside: 0.18,
+    coast: 0.04
 };
 function biasWeight(weight, level, urbanism, variety) {
     const diff = Math.abs(level - urbanism);
@@ -2678,7 +2919,8 @@ const SUBSTITUTE = {
     factory: "midrise",
     tree: "tree",
     barn: "barn",
-    silo: "silo"
+    silo: "silo",
+    hill: "tree"
 };
 class LayerSpawner {
     layer;
@@ -2827,6 +3069,7 @@ class BiomeField {
 function buildSkyline(world, config, rng) {
     const sky = new Layer("sky", 0);
     sky.add(new SkyBackdrop());
+    sky.add(new Aurora(rng.fork("aurora")));
     sky.add(new Starfield(rng.fork("stars")));
     sky.add(new Moon(rng.fork("moon")));
     sky.add(new FlyerDirector(rng.fork("flyer")));
@@ -2843,13 +3086,14 @@ function buildSkyline(world, config, rng) {
         const layer = new Layer(`buildings-${i}`, depth);
         world.addLayer(layer);
         const isFront = i === n - 1;
+        const exclude = [];
+        if (isFront) exclude.push("skyscraper");
+        if (f > 0.4) exclude.push("hill");
         spawners.push(new LayerSpawner(layer, rng.fork(`layer-${i}`), {
             depth,
             shoreOffset,
             scale,
-            excludeKinds: isFront ? [
-                "skyscraper"
-            ] : undefined,
+            excludeKinds: exclude.length > 0 ? exclude : undefined,
             biomeField
         }));
     }

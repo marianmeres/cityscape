@@ -29,8 +29,8 @@ src/
     config.ts            CONFIG_SCHEMA (source of truth) · DEFAULT_CONFIG · normalizeConfig
     palette.ts · mood.ts · events.ts · env.ts · scene.ts (createCityscape)
     buildings/{kinds,building,window-grid}.ts
-    sky/{backdrop,starfield,moon,cloud,bird,flyer,water,shore}.ts
-    generation/{district,spawner,skyline}.ts
+    sky/{backdrop,aurora,starfield,moon,cloud,bird,flyer,water,shore,fog,traffic}.ts
+    generation/{biome,district,spawner,skyline}.ts
   render/canvas/  ⮕ "./render/canvas"   · render/ascii/  ⮕ "./render/ascii"
   runtime/mount.ts   audio/ambient-audio.ts   ui/panel.ts  ⮕ "./ui"   (the only DOM code)
 tests/                 DOM-free unit suite (mirrors src/ modules)
