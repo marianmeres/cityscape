@@ -368,7 +368,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 120,
         step: 1,
-        default: 28,
+        default: 30,
         unit: "u/s",
         help: "Scroll speed. 0 holds the landscape still."
     },
@@ -4115,7 +4115,7 @@ const CONFIG_SCHEMA1 = [
         min: 0,
         max: 120,
         step: 1,
-        default: 120,
+        default: 30,
         unit: "u/s",
         help: "Scroll speed. 0 holds the city still."
     },
