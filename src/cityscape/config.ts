@@ -116,7 +116,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 120,
 		step: 1,
-		default: 20,
+		default: 120,
 		unit: "u/s",
 		help: "Scroll speed. 0 holds the city still.",
 	},
@@ -150,7 +150,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: -0.25,
 		max: 0.25,
 		step: 0.01,
-		default: 0.12,
+		default: -0.08,
 		help: "Pan the camera up (more sky) or down (more water).",
 	},
 	{
@@ -178,7 +178,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		label: "Seed",
 		group: "World",
 		type: "seed",
-		default: "arj213f",
+		default: "hey ho lets go",
 		help: "Same seed + settings reproduces the exact city.",
 	},
 	{
@@ -200,7 +200,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0.4,
 		max: 1.8,
 		step: 0.05,
-		default: 0.45,
+		default: 0.5,
 		help: "How tightly buildings pack in.",
 	},
 	{
@@ -211,7 +211,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 0.5,
 		step: 0.02,
-		default: 0.33,
+		default: 0.1,
 		help: "Fraction of the bottom that is calm water (sea/river). 0 = no water.",
 	},
 	{
@@ -256,7 +256,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0,
+		default: 0.3,
 		help:
 			"Drift between dense city and open outskirts as you scroll. 0 = uniform city.",
 	},
@@ -268,7 +268,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 1,
 		max: 12,
 		step: 0.5,
-		default: 5,
+		default: 4.5,
 		help:
 			"How long each city/outskirts stretch lasts (world units). Higher = longer.",
 	},
@@ -278,7 +278,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		label: "Palette",
 		group: "Mood",
 		type: "select",
-		default: "navy",
+		default: "dawn",
 		options: PALETTE_NAMES.map((n) => ({ value: n, label: PALETTES[n].label })),
 	},
 	{
@@ -301,7 +301,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.02,
-		default: 0.42,
+		default: 0.76,
 	},
 	{
 		key: "colorTemperature",
@@ -311,7 +311,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.02,
-		default: 0.5,
+		default: 0.48,
 		help: "Bias the cycle toward warm (0) or cool (1).",
 	},
 	{
@@ -322,7 +322,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.3,
+		default: 1,
 		help: "Darken the frame toward the corners (+ faint grain). 0 = off.",
 	},
 	// ── Lights ─────────────────────────────────────────────────────────
@@ -344,7 +344,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.02,
-		default: 0,
+		default: 0.48,
 		help: "How often windows switch. Low stays calm.",
 	},
 	// ── Sky ────────────────────────────────────────────────────────────
@@ -356,7 +356,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.5,
+		default: 0.1,
 	},
 	{
 		key: "starDensity",
@@ -366,7 +366,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.85,
+		default: 1,
 	},
 	{
 		key: "cloudChance",
@@ -376,7 +376,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.8,
+		default: 0.9,
 	},
 	{
 		key: "birdChance",
@@ -386,7 +386,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.8,
+		default: 0.95,
 	},
 	{
 		key: "flyerChance",
@@ -396,7 +396,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.9,
+		default: 0.95,
 		help: "Rare crossers: planes, satellites, shooting stars.",
 	},
 	{
@@ -407,7 +407,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.6,
+		default: 0.1,
 		help: "Sparse headlights crossing the waterfront. Needs a shore to drive on.",
 	},
 	{
@@ -418,7 +418,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.3,
+		default: 0,
 		help: "Low mist hazing the base of the skyline. 0 = clear.",
 	},
 	{
@@ -429,7 +429,7 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		default: 0.3,
+		default: 0,
 		help: "Faint sky shimmer (navy & vaporwave palettes only). 0 = off.",
 	},
 	// ── Audio ──────────────────────────────────────────────────────────
