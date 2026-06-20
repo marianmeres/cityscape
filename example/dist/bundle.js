@@ -374,6 +374,17 @@ const CONFIG_SCHEMA = [
         help: "Lit shore/embankment band between the city and the water."
     },
     {
+        key: "buildingShading",
+        label: "Facade light",
+        group: "World",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.5,
+        help: "Soft top-light on near buildings so silhouettes read as volumes. 0 = flat."
+    },
+    {
         key: "palette",
         label: "Palette",
         group: "Mood",
@@ -416,6 +427,17 @@ const CONFIG_SCHEMA = [
         step: 0.02,
         default: 0.5,
         help: "Bias the cycle toward warm (0) or cool (1)."
+    },
+    {
+        key: "vignette",
+        label: "Vignette",
+        group: "Mood",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.3,
+        help: "Darken the frame toward the corners (+ faint grain). 0 = off."
     },
     {
         key: "windowLightChance",
@@ -644,6 +666,24 @@ function darken(c, amount) {
 }
 function lighten(c, amount) {
     return mix(c, rgb(255, 255, 255, c.a), amount);
+}
+function hsl(h, s, l, a = 1) {
+    const hh = (h % 360 + 360) % 360 / 360;
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const r1 = hueToRgb(p, q, hh + 1 / 3);
+    const g = hueToRgb(p, q, hh);
+    const b = hueToRgb(p, q, hh - 1 / 3);
+    return rgb(r1 * 255, g * 255, b * 255, a);
+}
+function hueToRgb(p, q, t) {
+    let x = t;
+    if (x < 0) x += 1;
+    if (x > 1) x -= 1;
+    if (x < 1 / 6) return p + (q - p) * 6 * x;
+    if (x < 1 / 2) return q;
+    if (x < 2 / 3) return p + (q - p) * (2 / 3 - x) * 6;
+    return p;
 }
 function round3(n) {
     return Math.round(n * 1000) / 1000;
@@ -1074,6 +1114,9 @@ class WindowGrid {
     #fill;
     #toggle = 0;
     #salt = 0;
+    #litFloor = -1;
+    #signIdx = -1;
+    #signHue = 0;
     constructor(cols, rows, opts = {}){
         this.cols = Math.max(0, Math.floor(cols));
         this.rows = Math.max(0, Math.floor(rows));
@@ -1088,6 +1131,15 @@ class WindowGrid {
         }
         this.#toggle = rng.float(400, 2600);
         this.#salt = Math.floor(rng.next() * 9973);
+        this.#litFloor = this.rows >= 4 && rng.next() < 0.2 ? rng.int(1, this.rows - 2) : -1;
+        if (this.cols > 0 && this.rows > 0 && rng.next() < 0.12) {
+            const col = rng.int(0, this.cols - 1);
+            const row = rng.int(0, Math.max(0, Math.ceil(this.rows / 2) - 1));
+            this.#signIdx = row * this.cols + col;
+            this.#signHue = rng.float(0, 360);
+        } else {
+            this.#signIdx = -1;
+        }
     }
     update(dt, rng, config) {
         if (this.lit.length === 0 || config.windowToggleRate <= 0) return;
@@ -1110,22 +1162,40 @@ class WindowGrid {
         const offX = (cellW - winW) / 2;
         const offY = (cellH - winH) / 2;
         const glow = depth > 0.55 && winW > 1.4;
+        const detail = winW > 1.6;
+        const tintRange = 0.28;
         for(let r1 = 0; r1 < this.rows; r1++){
             for(let c = 0; c < this.cols; c++){
                 const idx = r1 * this.cols + c;
-                if (this.lit[idx] === 0) continue;
+                const isSign = idx === this.#signIdx;
+                if (this.lit[idx] === 0 && r1 !== this.#litFloor && !isSign) continue;
                 const wx = ix + c * cellW + offX;
-                const wy = iy + r1 * cellH + offY;
-                const hTint = cellHash(idx + this.#salt);
-                const hBright = cellHash(idx * 2 + this.#salt + 7);
-                const toward = hTint < 0.5 ? WARM_TINT : COOL_TINT;
-                const tinted = mix(color, toward, Math.abs(hTint - 0.5) * 2 * 0.28);
-                const bright = 0.6 + hBright * 0.4;
-                const cell = withAlpha(tinted, color.a * bright);
-                if (glow) {
-                    out.glow(wx + winW / 2, wy + winH / 2, winW * 1.7, fadeAlpha(cell, 0.45), 0.55);
+                let wy = iy + r1 * cellH + offY;
+                let wh = winH;
+                let cell;
+                if (isSign && detail) {
+                    cell = withAlpha(hsl(this.#signHue, 0.55, 0.62), color.a);
+                } else {
+                    const hTint = cellHash(idx + this.#salt);
+                    const hBright = cellHash(idx * 2 + this.#salt + 7);
+                    let toward = hTint < 0.5 ? WARM_TINT : COOL_TINT;
+                    let amt = Math.abs(hTint - 0.5) * 2 * 0.28;
+                    let bright = 0.6 + hBright * 0.4;
+                    if (this.rows >= 4 && r1 <= 1) {
+                        toward = WARM_TINT;
+                        amt = Math.max(amt, tintRange * 0.8);
+                        bright = Math.min(1, bright + 0.15);
+                    }
+                    cell = withAlpha(mix(color, toward, amt), color.a * bright);
+                    if (detail && cellHash(idx * 3 + this.#salt + 11) < 0.22) {
+                        wh = winH * 0.55;
+                        wy += winH - wh;
+                    }
                 }
-                out.rect(wx, wy, winW, winH, cell);
+                if (glow) {
+                    out.glow(wx + winW / 2, wy + wh / 2, winW * 1.7, fadeAlpha(cell, 0.45), 0.55);
+                }
+                out.rect(wx, wy, winW, wh, cell);
             }
         }
     }
@@ -1150,6 +1220,7 @@ class Building {
     #window = rgb(255, 255, 255);
     #time = 0;
     #phase = 0;
+    #shade = 0;
     constructor(depth, rng){
         this.depth = depth;
         this.#rng = rng;
@@ -1180,6 +1251,7 @@ class Building {
         const mood = ctx.env.mood;
         this.#color = silhouetteColor(mood, this.depth);
         this.#window = mood.window;
+        this.#shade = this.depth > 0.78 ? cfg.buildingShading : 0;
         this.#grid.update(ctx.dt, this.#rng, ctx.env.config);
     }
     draw(ctx) {
@@ -1191,15 +1263,16 @@ class Building {
         const topY = groundY - bh;
         const out = ctx.out;
         const spec = this.#spec;
-        const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks);
+        const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks, this.#shade);
         this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
         const beaconRef = sw / spec.width;
         drawRoof(out, spec.roof, sx, topY, sw, spec.roofScale, this.#color, this.#time, this.#phase, this.depth, beaconRef);
     }
 }
-function drawBody(out, x, y, w, h, color, setbacks) {
+function drawBody(out, x, y, w, h, color, setbacks, shade) {
     if (setbacks <= 0) {
         out.rect(x, y, w, h, color);
+        shadeSegment(out, x, y, w, h, color, shade);
         return {
             x,
             y,
@@ -1214,7 +1287,9 @@ function drawBody(out, x, y, w, h, color, setbacks) {
     let yBottom = y + h;
     for(let i = 0; i < segs; i++){
         const yTop = yBottom - segH;
-        out.rect(curX, yTop, curW, segH + 0.5, color);
+        const sh = segH + 0.5;
+        out.rect(curX, yTop, curW, sh, color);
+        shadeSegment(out, curX, yTop, curW, sh, color, shade);
         curX += curW * 0.16;
         curW *= 0.68;
         yBottom = yTop;
@@ -1225,6 +1300,20 @@ function drawBody(out, x, y, w, h, color, setbacks) {
         w,
         h: segH
     };
+}
+function shadeSegment(out, x, y, w, h, color, shade) {
+    if (shade <= 0) return;
+    const lit = lighten(color, 0.5);
+    out.gradient(x, y, w, h, [
+        {
+            at: 0,
+            color: withAlpha(lit, shade * 0.4)
+        },
+        {
+            at: 0.55,
+            color: withAlpha(lit, 0)
+        }
+    ], true);
 }
 function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth, beaconRef) {
     const cx = x + w / 2;
@@ -1313,6 +1402,39 @@ function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth, beaco
                         topY - th
                     ], color);
                 }
+                return;
+            }
+        case "barrel":
+            {
+                const r1 = w * 0.48;
+                const cap = Math.min(r1, w * 0.18 * (0.5 + scale));
+                out.circle(cx, topY + r1 - cap, r1, color);
+                return;
+            }
+        case "deco":
+            {
+                const stepH = w * 0.14 * (0.6 + scale);
+                let stepW = w * 0.62;
+                let yb = topY;
+                for(let i = 0; i < 3; i++){
+                    out.rect(cx - stepW / 2, yb - stepH, stepW, stepH + 0.5, color);
+                    yb -= stepH;
+                    stepW *= 0.62;
+                }
+                out.line(cx, yb, cx, yb - stepH * 0.9, Math.max(1, w * 0.04), color);
+                return;
+            }
+        case "watertower":
+            {
+                const tw = Math.max(4, w * 0.26 * (0.7 + scale));
+                const legH = w * 0.1 * (0.6 + scale);
+                const tankH = tw * 0.8;
+                const lw = Math.max(1, w * 0.03);
+                const baseY = topY - legH;
+                out.line(cx - tw * 0.3, topY, cx - tw * 0.3, baseY, lw, color);
+                out.line(cx + tw * 0.3, topY, cx + tw * 0.3, baseY, lw, color);
+                out.rect(cx - tw / 2, baseY - tankH, tw, tankH, color);
+                out.circle(cx, baseY - tankH, tw / 2, color);
                 return;
             }
     }
@@ -1431,10 +1553,12 @@ class Starfield {
         const t = this.#time * 0.002;
         for(let i = 0; i < shown; i++){
             const s = this.#stars[i];
-            const sx = wrap(s.x - scroll, this.#tileW);
-            if (sx > width) continue;
             const twinkle = 0.65 + 0.35 * Math.sin(t + s.tw);
-            out.circle(sx, s.yFrac * height, s.size, withAlpha(star, s.base * twinkle));
+            const color = withAlpha(star, s.base * twinkle);
+            const y = s.yFrac * height;
+            for(let sx = wrap(s.x - scroll, this.#tileW); sx < width; sx += this.#tileW){
+                out.circle(sx, y, s.size, color);
+            }
         }
     }
 }
@@ -1889,12 +2013,14 @@ const BUILDING_GENERATORS = {
                 "antenna",
                 "flat",
                 "spire",
-                "tank"
+                "tank",
+                "deco"
             ], [
                 4,
                 3,
                 2,
-                1
+                1,
+                2
             ]),
             roofScale: rng.float(0.5, 1),
             cols,
@@ -1922,9 +2048,11 @@ const BUILDING_GENERATORS = {
                 "flat",
                 "tank",
                 "dome",
-                "antenna"
+                "antenna",
+                "barrel"
             ], [
                 4,
+                2,
                 2,
                 2,
                 2
@@ -1946,9 +2074,11 @@ const BUILDING_GENERATORS = {
             roof: rng.weighted([
                 "flat",
                 "antenna",
-                "tank"
+                "tank",
+                "watertower"
             ], [
                 5,
+                2,
                 2,
                 2
             ]),
@@ -2008,9 +2138,11 @@ const BUILDING_GENERATORS = {
             height,
             roof: rng.weighted([
                 "spire",
-                "dome"
+                "dome",
+                "deco"
             ], [
                 3,
+                2,
                 2
             ]),
             roofScale: rng.float(0.7, 1),
@@ -2503,6 +2635,8 @@ class CanvasRenderer {
     #dpr = 1;
     #width = 0;
     #height = 0;
+    #vignette = 0;
+    #grainPattern = null;
     constructor(canvas){
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("CanvasRenderer: 2D context unavailable");
@@ -2518,6 +2652,9 @@ class CanvasRenderer {
         this.#canvas.style.width = `${width}px`;
         this.#canvas.style.height = `${height}px`;
     }
+    setPost(opts) {
+        if (opts.vignette !== undefined) this.#vignette = Math.max(0, opts.vignette);
+    }
     render(list) {
         const ctx = this.#ctx;
         ctx.setTransform(this.#dpr, 0, 0, this.#dpr, 0, list.offsetY * this.#dpr);
@@ -2526,6 +2663,30 @@ class CanvasRenderer {
         }
         for (const cmd of list.commands)this.#draw(ctx, cmd);
         ctx.globalCompositeOperation = "source-over";
+        this.#applyPost(ctx);
+    }
+    #applyPost(ctx) {
+        const vig = this.#vignette;
+        if (vig <= 0) return;
+        const w = this.#canvas.width;
+        const h = this.#canvas.height;
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const cx = w / 2;
+        const cy = h / 2;
+        const g = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.4, cx, cy, Math.hypot(w, h) * 0.6);
+        g.addColorStop(0, "rgba(0,0,0,0)");
+        g.addColorStop(1, `rgba(0,0,0,${(vig * 0.9).toFixed(3)})`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        const grain = this.#grainPattern ?? (this.#grainPattern = buildGrain(ctx));
+        if (grain) {
+            ctx.globalAlpha = vig * 0.06;
+            ctx.fillStyle = grain;
+            ctx.fillRect(0, 0, w, h);
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
     }
     #draw(ctx, cmd) {
         switch(cmd.kind){
@@ -2592,6 +2753,23 @@ class CanvasRenderer {
 }
 function clamp01(n) {
     return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+function buildGrain(ctx) {
+    const size = 64;
+    const tile = document.createElement("canvas");
+    tile.width = size;
+    tile.height = size;
+    const tctx = tile.getContext("2d");
+    if (!tctx) return null;
+    const img = tctx.createImageData(64, 64);
+    const d = img.data;
+    for(let i = 0; i < d.length; i += 4){
+        const v = Math.random() * 255 | 0;
+        d[i] = d[i + 1] = d[i + 2] = v;
+        d[i + 3] = 255;
+    }
+    tctx.putImageData(img, 0, 0);
+    return ctx.createPattern(tile, "repeat");
 }
 class AmbientAudio {
     #bus;
@@ -2810,6 +2988,9 @@ function mountCityscape(opts = {}) {
     }
     const scene = createCityscape(initial);
     const canvasRenderer = new CanvasRenderer(canvas);
+    canvasRenderer.setPost({
+        vignette: scene.config.vignette
+    });
     let renderer = canvasRenderer;
     const audio = new AmbientAudio(scene.events);
     audio.setVolume(scene.config.audioVolume);
@@ -2876,6 +3057,11 @@ function mountCityscape(opts = {}) {
     const applyRuntime = (patch)=>{
         if ("audioEnabled" in patch) audio.setEnabled(!!patch.audioEnabled);
         if ("audioVolume" in patch) audio.setVolume(scene.config.audioVolume);
+        if ("vignette" in patch) {
+            canvasRenderer.setPost({
+                vignette: scene.config.vignette
+            });
+        }
         if (opts.writeHash) writeHash();
     };
     const update = (patch)=>{
