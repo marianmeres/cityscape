@@ -23,7 +23,13 @@
       "tmp",
       "example",
       ".env.example",
-      "scripts"
+      "scripts",
+      "tests"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "example/dist"
     ]
   },
   "tasks": {

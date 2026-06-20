@@ -259,7 +259,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 120,
         step: 1,
-        default: 22,
+        default: 20,
         unit: "u/s",
         help: "Scroll speed. 0 holds the city still."
     },
@@ -288,7 +288,7 @@ const CONFIG_SCHEMA = [
         min: 0.5,
         max: 2,
         step: 0.05,
-        default: 1,
+        default: 0.5,
         help: "Camera distance. Higher zooms in (bigger buildings, fewer on screen)."
     },
     {
@@ -299,7 +299,7 @@ const CONFIG_SCHEMA = [
         min: -0.25,
         max: 0.25,
         step: 0.01,
-        default: 0,
+        default: 0.12,
         help: "Pan the camera up (more sky) or down (more water)."
     },
     {
@@ -310,7 +310,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 0.1,
         step: 0.005,
-        default: 0.02,
+        default: 0,
         help: "Amount of slow automatic up/down float. 0 holds still."
     },
     {
@@ -318,7 +318,7 @@ const CONFIG_SCHEMA = [
         label: "Pointer parallax",
         group: "Camera",
         type: "toggle",
-        default: true,
+        default: false,
         help: "Layers sway slightly toward the pointer (horizontally and vertically)."
     },
     {
@@ -326,7 +326,7 @@ const CONFIG_SCHEMA = [
         label: "Seed",
         group: "World",
         type: "seed",
-        default: "cityscape",
+        default: "arj213f",
         help: "Same seed + settings reproduces the exact city."
     },
     {
@@ -348,7 +348,7 @@ const CONFIG_SCHEMA = [
         min: 0.4,
         max: 1.8,
         step: 0.05,
-        default: 1,
+        default: 0.45,
         help: "How tightly buildings pack in."
     },
     {
@@ -425,7 +425,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.02,
-        default: 0.45
+        default: 0.08
     },
     {
         key: "windowToggleRate",
@@ -435,7 +435,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.02,
-        default: 0.22,
+        default: 0,
         help: "How often windows switch. Low stays calm."
     },
     {
@@ -446,7 +446,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.6
+        default: 0.5
     },
     {
         key: "starDensity",
@@ -456,7 +456,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.6
+        default: 0.85
     },
     {
         key: "cloudChance",
@@ -466,7 +466,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.4
+        default: 0.8
     },
     {
         key: "birdChance",
@@ -476,7 +476,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.25
+        default: 0.8
     },
     {
         key: "flyerChance",
@@ -486,7 +486,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.3,
+        default: 0.9,
         help: "Rare crossers: planes, satellites, shooting stars."
     },
     {
@@ -505,7 +505,7 @@ const CONFIG_SCHEMA = [
         min: 0,
         max: 1,
         step: 0.05,
-        default: 0.5
+        default: 0.3
     },
     {
         key: "showStats",

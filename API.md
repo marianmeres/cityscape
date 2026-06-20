@@ -183,30 +183,30 @@ derive from it. `normalizeConfig(input)` clamps/validates arbitrary input onto a
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
-| `seed` | `string` | `"cityscape"` | Same seed + config → same city. |
+| `seed` | `string` | `"arj213f"` | Same seed + config → same city. |
 | `palette` | `string` | `"navy"` | `navy` · `vaporwave` · `ink` · `dawn`. |
-| `cameraSpeed` | `number` | `22` | Screen px/sec. |
+| `cameraSpeed` | `number` | `20` | Screen px/sec. |
 | `cameraDirection` | `"right"\|"left"` | `"right"` | |
-| `zoom` | `number` | `1` | Camera distance; >1 zooms in. |
-| `cameraHeight` | `number` | `0` | Vertical aim (−0.25..0.25). |
-| `verticalDrift` | `number` | `0.02` | Slow automatic vertical float. |
-| `pointerParallax` | `boolean` | `true` | Pointer-driven sway/pan. |
+| `zoom` | `number` | `0.5` | Camera distance; >1 zooms in. |
+| `cameraHeight` | `number` | `0.12` | Vertical aim (−0.25..0.25). |
+| `verticalDrift` | `number` | `0` | Slow automatic vertical float. |
+| `pointerParallax` | `boolean` | `false` | Pointer-driven sway/pan. |
 | `parallaxLayers` | `number` | `4` | Building depth bands (2–6). |
-| `spawnDensity` | `number` | `1` | Building packing. |
+| `spawnDensity` | `number` | `0.45` | Building packing. |
 | `waterLevel` | `number` | `0.33` | Fraction of the bottom that is water. |
 | `shoreHeight` | `number` | `0.025` | Lit shore/embankment band. |
 | `moodCycleSeconds` | `number` | `90` | One warm→cool→warm breath. |
 | `darkness` | `number` | `0.42` | Overall darkness. |
 | `colorTemperature` | `number` | `0.5` | Bias warm (0) ↔ cool (1). |
-| `windowLightChance` | `number` | `0.45` | Fraction of lit windows. |
-| `windowToggleRate` | `number` | `0.22` | Flicker rate (low stays calm). |
-| `moonChance` | `number` | `0.6` | |
-| `starDensity` | `number` | `0.6` | |
-| `cloudChance` | `number` | `0.4` | |
-| `birdChance` | `number` | `0.25` | |
-| `flyerChance` | `number` | `0.3` | Planes / satellites / shooting stars. |
+| `windowLightChance` | `number` | `0.08` | Fraction of lit windows. |
+| `windowToggleRate` | `number` | `0` | Flicker rate (low stays calm). |
+| `moonChance` | `number` | `0.5` | |
+| `starDensity` | `number` | `0.85` | |
+| `cloudChance` | `number` | `0.8` | |
+| `birdChance` | `number` | `0.8` | |
+| `flyerChance` | `number` | `0.9` | Planes / satellites / shooting stars. |
 | `audioEnabled` | `boolean` | `false` | Muted by default. |
-| `audioVolume` | `number` | `0.5` | |
+| `audioVolume` | `number` | `0.3` | |
 | `showStats` | `boolean` | `false` | FPS / entity / draw-command overlay. |
 
 ### Palettes

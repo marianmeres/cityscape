@@ -3,7 +3,7 @@ import { createRng } from "../src/engine/math/rng.ts";
 import { Camera } from "../src/engine/scene/camera.ts";
 import { Layer } from "../src/engine/scene/layer.ts";
 import { LayerSpawner } from "../src/cityscape/generation/spawner.ts";
-import { Building } from "../src/cityscape/buildings/building.ts";
+import type { Building } from "../src/cityscape/buildings/building.ts";
 import { AmbientEventBus } from "../src/cityscape/events.ts";
 import { MoodEngine } from "../src/cityscape/mood.ts";
 import { DEFAULT_CONFIG } from "../src/cityscape/config.ts";
