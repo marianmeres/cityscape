@@ -77,6 +77,7 @@ export interface CityscapeConfig {
 	waterLevel: number;
 	shoreHeight: number;
 	buildingShading: number;
+	neon: number;
 	biomeVariety: number;
 	biomeScale: number;
 	// Mood
@@ -235,6 +236,17 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		default: 0.5,
 		help:
 			"Soft top-light on near buildings so silhouettes read as volumes. 0 = flat.",
+	},
+	{
+		key: "neon",
+		label: "Neon signs",
+		group: "World",
+		type: "range",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.4,
+		help: "Rare hue-cycling rooftop signs on near city buildings. 0 = none.",
 	},
 	{
 		key: "biomeVariety",

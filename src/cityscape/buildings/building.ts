@@ -12,7 +12,14 @@
  */
 
 import type { Rng } from "../../engine/math/rng.ts";
-import { type Color, darken, lighten, rgb, withAlpha } from "../../engine/math/color.ts";
+import {
+	type Color,
+	darken,
+	hsl,
+	lighten,
+	rgb,
+	withAlpha,
+} from "../../engine/math/color.ts";
 import { clamp } from "../../engine/math/ease.ts";
 import type { DisplayListBuilder } from "../../engine/render/draw-command.ts";
 import type { DrawContext, Entity, UpdateContext } from "../../engine/scene/entity.ts";
@@ -44,6 +51,11 @@ export class Building implements Entity<CityEnv> {
 	#phase = 0;
 	/** Cached facade top-light strength (0 = flat); resolved from config, gated to near layers. */
 	#shade = 0;
+	/** Cached neon-sign intensity (0 = off); resolved from config. */
+	#neon = 0;
+	/** Stable per-building rooftop-sign roll + hue (rendered only when `neon` is up). */
+	#signRoll = 1;
+	#signHue = 0;
 
 	constructor(depth: number, rng: Rng) {
 		this.depth = depth;
@@ -74,6 +86,10 @@ export class Building implements Entity<CityEnv> {
 		this.#phase = this.#rng.next();
 		this.#grid = new WindowGrid(spec.cols, spec.rows);
 		this.#grid.seed(this.#rng, litChance);
+		// After the window seed so default window patterns are untouched: a stable rooftop-sign
+		// roll + hue (only a fraction of tall city buildings carry one; the knob gates rendering).
+		this.#signRoll = this.#rng.next();
+		this.#signHue = this.#rng.float(0, 360);
 	}
 
 	/** Light interaction: pop most of this building's windows on (used by `scene.poke`). */
@@ -95,6 +111,7 @@ export class Building implements Entity<CityEnv> {
 		this.#window = mood.window;
 		// Facade light only earns its draw cost on the near bands; far/hazy ones stay flat.
 		this.#shade = this.depth > 0.78 ? cfg.buildingShading : 0;
+		this.#neon = cfg.neon;
 		this.#grid.update(ctx.dt, this.#rng, ctx.env.config);
 	}
 
@@ -143,7 +160,43 @@ export class Building implements Entity<CityEnv> {
 			this.depth,
 			beaconRef,
 		);
+
+		// A rare rooftop neon sign on near, tall city buildings (knob-gated, hue slowly cycling).
+		if (
+			this.#neon > 0 && this.depth > 0.8 && this.#signRoll < 0.16 &&
+			SIGN_KINDS.has(spec.kind)
+		) {
+			drawNeon(out, sx, topY, sw, this.#signHue, this.#time, this.#neon);
+		}
 	}
+}
+
+/** Archetypes that may carry a rooftop sign (tall, urban). */
+const SIGN_KINDS = new Set<BuildingSpec["kind"]>([
+	"skyscraper",
+	"tower",
+	"landmark",
+	"midrise",
+]);
+
+/** Draw a small glowing rooftop billboard whose hue drifts slowly. */
+function drawNeon(
+	out: DisplayListBuilder,
+	x: number,
+	topY: number,
+	w: number,
+	baseHue: number,
+	time: number,
+	intensity: number,
+): void {
+	const signW = Math.max(3, w * 0.42);
+	const signH = Math.max(2, w * 0.12);
+	const cx = x + w / 2;
+	const y = topY - signH; // sits on the roofline
+	const hue = (baseHue + time * 0.008) % 360;
+	const col = hsl(hue, 0.85, 0.62);
+	out.glow(cx, y + signH / 2, signW * 0.95, withAlpha(col, 0.5 * intensity), 0.9);
+	out.rect(cx - signW / 2, y, signW, signH, withAlpha(col, 0.85 * intensity));
 }
 
 /** Draw the silhouette body; returns the rect windows should fill. */
