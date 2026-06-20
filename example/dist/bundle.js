@@ -1285,13 +1285,22 @@ class Building {
         const topY = groundY - bh;
         const out = ctx.out;
         const spec = this.#spec;
-        const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks, this.#shade);
+        const win = drawBody(out, sx, topY, sw, bh, this.#color, spec.setbacks, this.#shade, spec.shape);
         this.#grid.draw(out, win.x, win.y, win.w, win.h, this.#window, this.depth);
         const beaconRef = sw / spec.width;
         drawRoof(out, spec.roof, sx, topY, sw, spec.roofScale, this.#color, this.#time, this.#phase, this.depth, beaconRef);
     }
 }
-function drawBody(out, x, y, w, h, color, setbacks, shade) {
+function drawBody(out, x, y, w, h, color, setbacks, shade, shape = "box") {
+    if (shape === "tree") {
+        drawTree(out, x, y, w, h, color);
+        return {
+            x,
+            y,
+            w,
+            h: 0
+        };
+    }
     if (setbacks <= 0) {
         out.rect(x, y, w, h, color);
         shadeSegment(out, x, y, w, h, color, shade);
@@ -1336,6 +1345,18 @@ function shadeSegment(out, x, y, w, h, color, shade) {
             color: withAlpha(lit, 0)
         }
     ], true);
+}
+function drawTree(out, x, y, w, h, color) {
+    const cx = x + w / 2;
+    const groundY = y + h;
+    const trunkW = Math.max(1, w * 0.16);
+    const trunkH = h * 0.42;
+    out.rect(cx - trunkW / 2, groundY - trunkH, trunkW, trunkH, color);
+    const r1 = w * 0.5;
+    const cyTop = y + r1 * 0.9;
+    out.circle(cx, cyTop, r1, color);
+    out.circle(cx - w * 0.28, cyTop + h * 0.1, r1 * 0.7, color);
+    out.circle(cx + w * 0.28, cyTop + h * 0.1, r1 * 0.7, color);
 }
 function drawRoof(out, roof, x, topY, w, scale, color, time, phase, depth, beaconRef) {
     const cx = x + w / 2;
@@ -2178,6 +2199,55 @@ const BUILDING_GENERATORS = {
                 3
             ])
         };
+    },
+    tree (rng) {
+        const height = rng.float(0.05, 0.13);
+        const width = height * rng.float(0.7, 1.1);
+        return {
+            kind: "tree",
+            shape: "tree",
+            width,
+            height,
+            roof: "flat",
+            roofScale: 0,
+            cols: 0,
+            rows: 0,
+            setbacks: 0
+        };
+    },
+    barn (rng) {
+        const height = rng.float(0.06, 0.11);
+        const width = height * rng.float(1.6, 2.6);
+        return {
+            kind: "barn",
+            width,
+            height,
+            roof: "pitched",
+            roofScale: rng.float(0.7, 1),
+            cols: rng.int(0, 3),
+            rows: rng.int(0, 2),
+            setbacks: 0
+        };
+    },
+    silo (rng) {
+        const height = rng.float(0.1, 0.18);
+        const width = height * rng.float(0.28, 0.42);
+        return {
+            kind: "silo",
+            width,
+            height,
+            roof: rng.weighted([
+                "dome",
+                "barrel"
+            ], [
+                3,
+                2
+            ]),
+            roofScale: rng.float(0.6, 1),
+            cols: 0,
+            rows: 0,
+            setbacks: 0
+        };
     }
 };
 function generateBuilding(kind, rng) {
@@ -2331,14 +2401,63 @@ const RULES = {
             3,
             2
         ]
+    },
+    countryside: {
+        kinds: [
+            "tree",
+            "house",
+            "barn",
+            "silo",
+            null
+        ],
+        kindWeights: [
+            5,
+            2,
+            2,
+            1,
+            3
+        ],
+        gap: [
+            0.03,
+            0.1
+        ],
+        run: [
+            4,
+            9
+        ],
+        next: [
+            "countryside",
+            "residential",
+            "park"
+        ],
+        nextWeights: [
+            4,
+            2,
+            2
+        ]
     }
+};
+const BIOME_SUCCESSORS = {
+    residential: [
+        [
+            "countryside",
+            4
+        ]
+    ],
+    park: [
+        [
+            "countryside",
+            4
+        ]
+    ]
 };
 const URBANISM = {
     downtown: 1,
     commercial: 0.72,
     residential: 0.38,
     industrial: 0.28,
-    park: 0.12
+    park: 0.12,
+    countryside: 0.18
 };
 function biasWeight(weight, level, urbanism, variety) {
     const diff = Math.abs(level - urbanism);
@@ -2363,9 +2482,7 @@ class DistrictStream {
     }
     next(urbanism = 0.5, variety = 0) {
         if (this.#remaining <= 0) {
-            const rule = RULES[this.#district];
-            const weights = variety > 0 ? rule.next.map((d, i)=>biasWeight(rule.nextWeights[i], URBANISM[d], urbanism, variety)) : rule.nextWeights;
-            this.#district = this.#rng.weighted(rule.next, weights);
+            this.#district = this.#chooseNext(urbanism, variety);
             this.#remaining = this.#rollRun(this.#district);
         }
         this.#remaining--;
@@ -2376,6 +2493,21 @@ class DistrictStream {
             gap: this.#rollGap(rule),
             district: this.#district
         };
+    }
+    #chooseNext(urbanism, variety) {
+        const rule = RULES[this.#district];
+        if (variety <= 0) return this.#rng.weighted(rule.next, rule.nextWeights);
+        const extra = BIOME_SUCCESSORS[this.#district];
+        const cands = extra ? [
+            ...rule.next,
+            ...extra.map((e)=>e[0])
+        ] : rule.next;
+        const base = extra ? [
+            ...rule.nextWeights,
+            ...extra.map((e)=>e[1])
+        ] : rule.nextWeights;
+        const weights = cands.map((d, i)=>biasWeight(base[i], URBANISM[d], urbanism, variety));
+        return this.#rng.weighted(cands, weights);
     }
     #rollGap(rule) {
         const r1 = this.#rng.next();
@@ -2392,7 +2524,10 @@ const SUBSTITUTE = {
     tower: "midrise",
     midrise: "house",
     house: "house",
-    factory: "midrise"
+    factory: "midrise",
+    tree: "tree",
+    barn: "barn",
+    silo: "silo"
 };
 class LayerSpawner {
     layer;
