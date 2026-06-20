@@ -20,7 +20,8 @@ export type District =
 	| "residential"
 	| "industrial"
 	| "park"
-	| "countryside";
+	| "countryside"
+	| "coast";
 
 interface DistrictRule {
 	/** Archetypes allowed here, and their relative weights. `null` = an open gap (park). */
@@ -78,14 +79,23 @@ const RULES: Record<District, DistrictRule> = {
 		nextWeights: [3, 3, 3, 2],
 	},
 	// Biome-only: reached solely via BIOME_SUCCESSORS when the journey is on. Trees, the odd
-	// farmhouse, barns and silos, with wide open gaps between them.
+	// farmhouse, barns, silos and distant hills, with wide open gaps between them.
 	countryside: {
-		kinds: ["tree", "house", "barn", "silo", null],
-		kindWeights: [5, 2, 2, 1, 3],
+		kinds: ["tree", "house", "barn", "silo", "hill", null],
+		kindWeights: [5, 2, 2, 1, 2, 3],
 		gap: [0.03, 0.1],
 		run: [4, 9],
 		next: ["countryside", "residential", "park"],
 		nextWeights: [4, 2, 2],
+	},
+	// Biome-only, the open low end: mostly empty shore with rolling hills and the rare cottage.
+	coast: {
+		kinds: ["hill", "tree", "house", null],
+		kindWeights: [2, 2, 1, 6],
+		gap: [0.06, 0.16],
+		run: [3, 7],
+		next: ["coast", "countryside", "park"],
+		nextWeights: [3, 2, 2],
 	},
 };
 
@@ -95,7 +105,8 @@ const RULES: Record<District, DistrictRule> = {
  */
 const BIOME_SUCCESSORS: Partial<Record<District, [District, number][]>> = {
 	residential: [["countryside", 4]],
-	park: [["countryside", 4]],
+	park: [["countryside", 4], ["coast", 2]],
+	countryside: [["coast", 3]],
 };
 
 /** One emitted slot: a building archetype (or `null` for open space) plus the gap after it. */
@@ -116,6 +127,7 @@ const URBANISM: Record<District, number> = {
 	industrial: 0.28,
 	park: 0.12,
 	countryside: 0.18,
+	coast: 0.04,
 };
 
 /**

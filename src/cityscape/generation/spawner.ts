@@ -49,6 +49,8 @@ const SUBSTITUTE: Record<BuildingKind, BuildingKind> = {
 	tree: "tree",
 	barn: "barn",
 	silo: "silo",
+	// Hills belong on the far bands; if one is generated for a near band it becomes a tree.
+	hill: "tree",
 };
 
 const GEN_MARGIN = 340;

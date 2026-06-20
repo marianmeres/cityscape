@@ -215,6 +215,10 @@ function drawBody(
 		drawTree(out, x, y, w, h, color);
 		return { x, y, w, h: 0 }; // no windows on a tree (the grid is empty anyway)
 	}
+	if (shape === "mound") {
+		drawMound(out, x, y, w, h, color);
+		return { x, y, w, h: 0 };
+	}
 	if (setbacks <= 0) {
 		out.rect(x, y, w, h, color);
 		shadeSegment(out, x, y, w, h, color, shade);
@@ -281,6 +285,31 @@ function drawTree(
 	out.circle(cx, cyTop, r, color);
 	out.circle(cx - w * 0.28, cyTop + h * 0.1, r * 0.7, color);
 	out.circle(cx + w * 0.28, cyTop + h * 0.1, r * 0.7, color);
+}
+
+/** A low rolling hill: a shallow circular-arc cap traced as a polygon, clipped to its baseline. */
+function drawMound(
+	out: DisplayListBuilder,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	color: Color,
+): void {
+	const cx = x + w / 2;
+	const baseY = y + h;
+	// Circle through the chord ends (width w at baseY) peaking h above: r = (w²/4 + h²) / 2h.
+	const r = (w * w / 4 + h * h) / (2 * h);
+	const cyc = y + r; // centre below the peak
+	const steps = 14;
+	const pts: number[] = [];
+	for (let i = 0; i <= steps; i++) {
+		const px = x + (w * i) / steps;
+		const dx = px - cx;
+		pts.push(px, cyc - Math.sqrt(Math.max(0, r * r - dx * dx)));
+	}
+	pts.push(x + w, baseY, x, baseY); // close along the baseline
+	out.polygon(pts, color);
 }
 
 function drawRoof(

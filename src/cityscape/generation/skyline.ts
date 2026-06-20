@@ -14,6 +14,7 @@ import type { Rng } from "../../engine/math/rng.ts";
 import { Layer } from "../../engine/scene/layer.ts";
 import type { World } from "../../engine/scene/world.ts";
 import type { CityscapeConfig } from "../config.ts";
+import type { BuildingKind } from "../buildings/kinds.ts";
 import type { CityEnv } from "../env.ts";
 import { SkyBackdrop } from "../sky/backdrop.ts";
 import { Aurora } from "../sky/aurora.ts";
@@ -67,14 +68,18 @@ export function buildSkyline(
 		const shoreOffset = (1 - f) * 0.05; // far bands a touch higher (distant shore)
 		const layer = new Layer<CityEnv>(`buildings-${i}`, depth);
 		world.addLayer(layer);
-		// Keep skyscrapers out of the nearest band — up close they'd dominate the whole frame.
+		// Keep skyscrapers out of the nearest band (up close they'd dominate the frame), and keep
+		// hills off the nearer bands so they read as a distant rolling horizon, not foreground lumps.
 		const isFront = i === n - 1;
+		const exclude: BuildingKind[] = [];
+		if (isFront) exclude.push("skyscraper");
+		if (f > 0.4) exclude.push("hill");
 		spawners.push(
 			new LayerSpawner(layer, rng.fork(`layer-${i}`), {
 				depth,
 				shoreOffset,
 				scale,
-				excludeKinds: isFront ? ["skyscraper"] : undefined,
+				excludeKinds: exclude.length > 0 ? exclude : undefined,
 				biomeField,
 			}),
 		);

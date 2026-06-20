@@ -23,10 +23,11 @@ export type BuildingKind =
 	| "landmark"
 	| "tree"
 	| "barn"
-	| "silo";
+	| "silo"
+	| "hill";
 
-/** How a silhouette body is drawn: a stacked box (the default) or an organic tree. */
-export type BodyShape = "box" | "tree";
+/** How a silhouette body is drawn: a stacked box (default), an organic tree, or a rolling mound. */
+export type BodyShape = "box" | "tree" | "mound";
 
 /** Roof / crown features drawn atop the silhouette. */
 export type RoofKind =
@@ -213,6 +214,21 @@ export const BUILDING_GENERATORS: Record<BuildingKind, (rng: Rng) => BuildingSpe
 			height,
 			roof: rng.weighted(["dome", "barrel"] as RoofKind[], [3, 2]),
 			roofScale: rng.float(0.6, 1),
+			cols: 0,
+			rows: 0,
+			setbacks: 0,
+		};
+	},
+	hill(rng) {
+		const height = rng.float(0.05, 0.13);
+		const width = height * rng.float(2.5, 5); // wide & low rolling mound
+		return {
+			kind: "hill",
+			shape: "mound",
+			width,
+			height,
+			roof: "flat",
+			roofScale: 0,
 			cols: 0,
 			rows: 0,
 			setbacks: 0,
