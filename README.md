@@ -52,6 +52,41 @@ can toggle between them live.
   [`@marianmeres/design-tokens`](https://jsr.io/@marianmeres/design-tokens)). Add a knob with a
   one-line schema edit.
 
+## What kind of thing is it?
+
+**Not a game framework** — though it borrows a fixed-timestep loop and a scene graph from one.
+There's no player, no goal, no physics, no collision, and entities never interact: a building
+doesn't know a cloud exists. Input is optional and purely decorative. A game simulates a system
+_reacting to an agent_; this simulates a world that _ignores you_.
+
+**Nor is it just an "animation" or "drawing" library** — the word _drawing_ points at the renderer,
+which is the least important, most swappable, furthest-downstream part. The core deliberately draws
+nothing: it **simulates and then describes**, and turning that description into pixels is somebody
+else's job (three times over — Canvas, ASCII, PixelArt).
+
+What it actually is, is two well-worn patterns fused with nothing content-specific between them:
+
+1. **A deterministic simulation kernel** — seeded RNG + value noise + a fixed-step clock, so
+   `seed + config` reproduces the exact frame. That lineage is demoscene / reproducible-sim, not games.
+2. **A miniature render-hardware-interface.** The `DrawCommand` union + `DisplayList` + `Renderer`
+   seam is, structurally, a command buffer with interchangeable backends — the same idea as a
+   graphics RHI, or a retained scene graph flattened to draw calls.
+
+> **A deterministic, procedural _ambient-scene engine_** — a headless world-simulator that emits a
+> renderer-agnostic display list.
+
+Spiritually it's a screensaver / living-wallpaper / demoscene engine, built with the architectural
+rigor (a DOM-free seam, a purity test, a second domain proving reuse) you'd normally only find in a
+real graphics stack. That `cityscape/` and `naturescape/` ride the _identical_ engine, renderers and
+panel — neither importing the other — is the proof the seam is load-bearing rather than a
+city-specific accident. The two worlds are just the test harness that happens to be pretty.
+
+One honest caveat: because nothing here gives entities physics, shared state or a way to affect one
+another, "engine" promises a little more than it delivers. It's an engine for a **specific shape of
+problem** — infinite, depth-banded, deterministic, passive 2.5D scenes. Inside that shape it's
+complete; outside it (anything where entities must react to each other) you'd be building on sand.
+That's the scope being honest, not a flaw.
+
 ## Install
 
 ```ts
