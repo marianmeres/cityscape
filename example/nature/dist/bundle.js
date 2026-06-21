@@ -3742,7 +3742,7 @@ function mountNaturescape(opts = {}) {
     audio.setVolume(scene.config.audioVolume);
     if (scene.config.audioEnabled) audio.setEnabled(true);
     const stats = document.createElement("div");
-    stats.style.cssText = "position:fixed;left:16px;top:16px;z-index:9;display:none;" + "font:11px/1.5 ui-monospace,Menlo,monospace;white-space:pre;padding:8px 10px;" + "border-radius:8px;pointer-events:none;color:#16331f;" + "background:rgba(244,250,240,0.7);border:1px solid rgba(60,110,70,0.25);";
+    stats.style.cssText = "position:fixed;left:16px;bottom:16px;z-index:9;display:none;" + "font:11px/1.5 ui-monospace,Menlo,monospace;white-space:pre;padding:8px 10px;" + "border-radius:8px;pointer-events:none;color:#16331f;" + "background:rgba(244,250,240,0.7);border:1px solid rgba(60,110,70,0.25);";
     container.append(stats);
     let fps = 0;
     let lastFrame = 0;
@@ -4483,10 +4483,11 @@ function createControlPanel(opts) {
         });
     });
     const shareBtn = opts.onShare ? button("🔗", "Copy link", ()=>opts.onShare()) : null;
-    const collapseBtn = button("▾", "Collapse", ()=>collapsed.update((c)=>!c));
+    const closing = !!opts.onClose;
+    const cornerBtn = closing ? button("✕", "Close", ()=>opts.onClose()) : button("▾", "Collapse", ()=>collapsed.update((c)=>!c));
     header.append(heading, spacer, shuffleBtn);
     if (shareBtn) header.append(shareBtn);
-    header.append(collapseBtn);
+    header.append(cornerBtn);
     const body = el("div", "csp-body");
     const groups = deriveGroups(schema);
     for (const group of groups){
@@ -4502,14 +4503,16 @@ function createControlPanel(opts) {
         body.append(section);
     }
     root.append(header, body);
-    unsubs.push(reactTo([
-        collapsed
-    ], ()=>{
-        const c = collapsed.get();
-        root.classList.toggle("csp-collapsed", c);
-        collapseBtn.textContent = c ? "▸" : "▾";
-        collapseBtn.title = c ? "Expand" : "Collapse";
-    }));
+    if (!closing) {
+        unsubs.push(reactTo([
+            collapsed
+        ], ()=>{
+            const c = collapsed.get();
+            root.classList.toggle("csp-collapsed", c);
+            cornerBtn.textContent = c ? "▸" : "▾";
+            cornerBtn.title = c ? "Expand" : "Collapse";
+        }));
+    }
     return {
         el: root,
         set (config) {
@@ -5307,11 +5310,28 @@ function flash(msg) {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(()=>toast.classList.remove("ns-toast-show"), 1400);
 }
+let immersive = false;
+let menuOpen = false;
+let panelOpen = false;
+function applyVisibility() {
+    menuBtn.style.display = immersive ? "none" : "";
+    menu.style.display = !immersive && menuOpen ? "" : "none";
+    panel.el.style.display = !immersive && panelOpen ? "" : "none";
+}
+const setMenuOpen = (on)=>{
+    menuOpen = on;
+    applyVisibility();
+};
+const setPanelOpen = (on)=>{
+    panelOpen = on;
+    applyVisibility();
+};
 const panel = createControlPanel({
     config: handle.scene.config,
     schema: CONFIG_SCHEMA,
     title: "Nature",
     onChange: (patch)=>handle.update(patch),
+    onClose: ()=>setPanelOpen(false),
     onShare: async ()=>{
         try {
             await navigator.clipboard.writeText(handle.permalink());
@@ -5362,39 +5382,43 @@ function adjustPixelScale(delta) {
     });
     flash(`Pixel size ${pixelScale}`);
 }
-const bar = document.createElement("div");
-bar.className = "ns-bar";
-const asciiBtn = document.createElement("button");
-asciiBtn.className = "ns-bar-btn";
-asciiBtn.textContent = "ASCII view";
-asciiBtn.addEventListener("click", ()=>toggleMode("ascii"));
-const pixelBtn = document.createElement("button");
-pixelBtn.className = "ns-bar-btn";
-pixelBtn.textContent = "Pixel view";
-pixelBtn.addEventListener("click", ()=>toggleMode("pixel"));
-const fsBtn = document.createElement("button");
-fsBtn.className = "ns-bar-btn";
-fsBtn.textContent = "Fullscreen";
-fsBtn.addEventListener("click", ()=>setImmersive(true));
-const worldBtn = document.createElement("button");
-worldBtn.className = "ns-bar-btn";
-worldBtn.textContent = "🌃 City";
+const menuBtn = document.createElement("button");
+menuBtn.className = "ns-menu-btn";
+menuBtn.textContent = "☰";
+menuBtn.title = "Menu";
+menuBtn.setAttribute("aria-label", "Menu");
+menuBtn.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    setMenuOpen(!menuOpen);
+});
+const menu = document.createElement("div");
+menu.className = "ns-menu";
+function menuItem(label, onPick) {
+    const b = document.createElement("button");
+    b.className = "ns-menu-item";
+    b.textContent = label;
+    b.addEventListener("click", ()=>{
+        setMenuOpen(false);
+        onPick();
+    });
+    return b;
+}
+const asciiBtn = menuItem("ASCII view", ()=>toggleMode("ascii"));
+const pixelBtn = menuItem("Pixel view", ()=>toggleMode("pixel"));
+const fsBtn = menuItem("Fullscreen", ()=>setImmersive(true));
+const worldBtn = menuItem("🌃 City", ()=>location.href = "../city/");
 worldBtn.title = "Switch to the night city";
-worldBtn.addEventListener("click", ()=>location.href = "../city/");
-const hint = document.createElement("span");
-hint.className = "ns-hint";
-hint.textContent = "move = parallax · wheel = speed · click = ripple · keys: a / p / [ ] / h / f";
-bar.append(asciiBtn, pixelBtn, fsBtn, worldBtn, hint);
-document.body.append(bar);
-const controls = [
-    panel.el,
-    bar
-];
-let immersive = false;
+const settingsBtn = menuItem("⚙ Settings", ()=>setPanelOpen(true));
+const hint = document.createElement("div");
+hint.className = "ns-menu-hint";
+hint.textContent = "move = parallax · wheel = speed · click = ripple · keys: a / p / [ ] / m / h / f";
+menu.append(asciiBtn, pixelBtn, fsBtn, worldBtn, settingsBtn, hint);
+document.body.append(menuBtn, menu);
 function setImmersive(on) {
     if (on === immersive) return;
     immersive = on;
-    for (const el of controls)el.style.display = on ? "none" : "";
+    if (on) menuOpen = false;
+    applyVisibility();
     if (on) document.documentElement.requestFullscreen?.().catch(()=>{});
     else if (document.fullscreenElement) {
         document.exitFullscreen?.().catch(()=>{});
@@ -5403,17 +5427,24 @@ function setImmersive(on) {
 document.addEventListener("fullscreenchange", ()=>{
     if (!document.fullscreenElement && immersive) setImmersive(false);
 });
+document.addEventListener("click", (e)=>{
+    if (menuOpen && !menu.contains(e.target)) setMenuOpen(false);
+});
 addEventListener("keydown", (e)=>{
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
         return;
     }
-    if (e.key === "a") toggleMode("ascii");
+    if (e.key === "Escape") {
+        if (menuOpen) setMenuOpen(false);
+    } else if (e.key === "a") toggleMode("ascii");
     else if (e.key === "p") toggleMode("pixel");
     else if (e.key === "[") adjustPixelScale(-1);
     else if (e.key === "]") adjustPixelScale(1);
-    else if (e.key === "h") panel.toggle();
+    else if (e.key === "m") setMenuOpen(!menuOpen);
+    else if (e.key === "h") setPanelOpen(!panelOpen);
     else if (e.key === "f") setImmersive(!immersive);
 });
+applyVisibility();
 Object.assign(globalThis, {
     handle,
     panel

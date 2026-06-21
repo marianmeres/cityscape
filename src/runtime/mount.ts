@@ -112,9 +112,10 @@ export function mountCityscape(opts: MountOptions = {}): CityscapeHandle {
 	audio.setVolume(scene.config.audioVolume);
 	if (scene.config.audioEnabled) audio.setEnabled(true);
 
-	// ── Stats overlay (toggled by the `showStats` config) ───────────────
+	// ── Stats overlay (toggled by the `showStats` config) — bottom-left so it doesn't
+	//    collide with a top-left menu the host may render ─────────────────
 	const stats = document.createElement("div");
-	stats.style.cssText = "position:fixed;left:16px;top:16px;z-index:9;display:none;" +
+	stats.style.cssText = "position:fixed;left:16px;bottom:16px;z-index:9;display:none;" +
 		"font:11px/1.5 ui-monospace,Menlo,monospace;white-space:pre;padding:8px 10px;" +
 		"border-radius:8px;pointer-events:none;color:#cfe0ff;" +
 		"background:rgba(10,16,32,0.7);border:1px solid rgba(120,140,200,0.2);";

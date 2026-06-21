@@ -58,33 +58,66 @@
 				pointer-events: none;
 			}
 
-			/* Bottom control bar. */
-			.ns-bar {
+			/* Hamburger menu — the only control visible by default (top-left). */
+			.ns-menu-btn {
 				position: fixed;
 				left: 16px;
-				bottom: 16px;
-				z-index: 10;
-				display: flex;
+				top: 16px;
+				z-index: 11;
+				width: 40px;
+				height: 40px;
+				display: inline-flex;
 				align-items: center;
-				gap: 12px;
-				font-size: 12px;
-				color: var(--app-color-muted-foreground, #4f6b54);
-			}
-			.ns-bar-btn {
-				font: inherit;
-				padding: 7px 12px;
-				border-radius: 8px;
+				justify-content: center;
+				font-size: 18px;
+				line-height: 1;
+				border-radius: 10px;
 				border: 1px solid var(--app-color-border, rgba(60, 110, 70, 0.25));
 				background: var(--app-color-surface, rgba(248, 252, 245, 0.82));
 				color: var(--app-color-foreground, #1f3a24);
 				cursor: pointer;
 				backdrop-filter: blur(10px);
 			}
-			.ns-bar-btn:hover {
+			.ns-menu-btn:hover {
 				background: var(--app-color-muted, rgba(60, 110, 70, 0.1));
 			}
-			.ns-hint {
+			/* The dropdown the hamburger reveals (JS toggles display). */
+			.ns-menu {
+				position: fixed;
+				left: 16px;
+				top: 64px;
+				z-index: 11;
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				width: 200px;
+				padding: 8px;
+				border-radius: 12px;
+				border: 1px solid var(--app-color-border, rgba(60, 110, 70, 0.25));
+				background: var(--app-color-surface, rgba(248, 252, 245, 0.92));
+				color: var(--app-color-foreground, #1f3a24);
+				backdrop-filter: blur(10px);
+				box-shadow: 0 16px 40px rgba(31, 58, 36, 0.18);
+			}
+			.ns-menu-item {
+				font: 13px/1 ui-sans-serif, system-ui, sans-serif;
+				text-align: left;
+				padding: 9px 10px;
+				border-radius: 8px;
+				border: none;
+				background: transparent;
+				color: inherit;
+				cursor: pointer;
+			}
+			.ns-menu-item:hover {
+				background: var(--app-color-muted, rgba(60, 110, 70, 0.1));
+			}
+			.ns-menu-hint {
+				padding: 6px 10px 2px;
+				font-size: 11px;
+				line-height: 1.4;
 				opacity: 0.75;
+				color: var(--app-color-muted-foreground, #4f6b54);
 			}
 
 			/* Permalink toast. */
@@ -110,7 +143,7 @@
 			}
 
 			@media (max-width: 560px) {
-				.ns-hint {
+				.ns-menu-hint {
 					display: none;
 				}
 			}
@@ -119,8 +152,8 @@
 	<body>
 		<!--
 			The canvas is created and appended by mountNaturescape(); the panel, ASCII <pre>, and
-			the bar are built by the example script. Build the bundle first:
-			  deno task example-nature:build      (or example-nature:watch)
+			the hamburger menu are built by the example script. Build the bundle first:
+			  deno task nature:build      (or nature:watch)
 		-->
 		<script type="module" src="./dist/bundle.js"></script>
 	</body>

@@ -33,6 +33,12 @@ export interface ControlPanelOptions<C extends object = CityscapeConfig> {
 	collapsed?: boolean;
 	/** Optional "copy link" handler (the runtime supplies a permalink writer). */
 	onShare?: () => void;
+	/**
+	 * Optional "close" handler. When provided, the header's corner button becomes a ✕ that
+	 * calls this (the host hides the whole panel) instead of the default ▾ that merely
+	 * collapses the body in place.
+	 */
+	onClose?: () => void;
 }
 
 /** A live control panel over a config of type `C`. */
@@ -75,11 +81,15 @@ export function createControlPanel<C extends object = CityscapeConfig>(
 	const shareBtn = opts.onShare
 		? button("🔗", "Copy link", () => opts.onShare!())
 		: null;
-	const collapseBtn = button("▾", "Collapse", () => collapsed.update((c) => !c));
+	// A ✕ that fully closes the panel when the host opted in, otherwise the ▾ collapse toggle.
+	const closing = !!opts.onClose;
+	const cornerBtn = closing
+		? button("✕", "Close", () => opts.onClose!())
+		: button("▾", "Collapse", () => collapsed.update((c) => !c));
 
 	header.append(heading, spacer, shuffleBtn);
 	if (shareBtn) header.append(shareBtn);
-	header.append(collapseBtn);
+	header.append(cornerBtn);
 
 	const body = el("div", "csp-body");
 
@@ -100,15 +110,17 @@ export function createControlPanel<C extends object = CityscapeConfig>(
 
 	root.append(header, body);
 
-	// Wire collapse reactively.
-	unsubs.push(
-		reactTo([collapsed], () => {
-			const c = collapsed.get();
-			root.classList.toggle("csp-collapsed", c);
-			collapseBtn.textContent = c ? "▸" : "▾";
-			collapseBtn.title = c ? "Expand" : "Collapse";
-		}),
-	);
+	// Wire collapse reactively (no-op in close mode — the corner button hides the panel instead).
+	if (!closing) {
+		unsubs.push(
+			reactTo([collapsed], () => {
+				const c = collapsed.get();
+				root.classList.toggle("csp-collapsed", c);
+				cornerBtn.textContent = c ? "▸" : "▾";
+				cornerBtn.title = c ? "Expand" : "Collapse";
+			}),
+		);
+	}
 
 	return {
 		el: root,

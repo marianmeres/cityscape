@@ -34,10 +34,35 @@ function flash(msg: string): void {
 	);
 }
 
-// ── Schema-driven control panel ───────────────────────────────────────────────
+// ── Visibility state ──────────────────────────────────────────────────────────
+// Default view shows only the hamburger button; the menu and the settings panel are
+// summoned on demand, and immersive mode hides everything. `applyVisibility()` is the
+// single place that maps this state onto the DOM — so leaving immersive can't resurrect
+// a panel the user had closed.
+let immersive = false;
+let menuOpen = false;
+let panelOpen = false;
+function applyVisibility(): void {
+	menuBtn.style.display = immersive ? "none" : "";
+	menu.style.display = !immersive && menuOpen ? "" : "none";
+	panel.el.style.display = !immersive && panelOpen ? "" : "none";
+}
+const setMenuOpen = (on: boolean): void => {
+	menuOpen = on;
+	applyVisibility();
+};
+const setPanelOpen = (on: boolean): void => {
+	panelOpen = on;
+	applyVisibility();
+};
+
+// ── Schema-driven control panel (hidden until summoned from the menu) ──────────
+// `onClose` turns the panel's corner button into a ✕ that hides the whole panel
+// (vs. the default ▾ that only collapses its body).
 const panel = createControlPanel({
 	config: handle.scene.config,
 	onChange: (patch) => handle.update(patch),
+	onClose: () => setPanelOpen(false),
 	onShare: async () => {
 		try {
 			await navigator.clipboard.writeText(handle.permalink());
@@ -99,41 +124,55 @@ function adjustPixelScale(delta: number): void {
 	flash(`Pixel size ${pixelScale}`);
 }
 
-// ── Bottom bar (ASCII toggle · fullscreen · interaction hint) ─────────────────
-const bar = document.createElement("div");
-bar.className = "cs-bar";
-const asciiBtn = document.createElement("button");
-asciiBtn.className = "cs-bar-btn";
-asciiBtn.textContent = "ASCII view";
-asciiBtn.addEventListener("click", () => toggleMode("ascii"));
-const pixelBtn = document.createElement("button");
-pixelBtn.className = "cs-bar-btn";
-pixelBtn.textContent = "Pixel view";
-pixelBtn.addEventListener("click", () => toggleMode("pixel"));
-const fsBtn = document.createElement("button");
-fsBtn.className = "cs-bar-btn";
-fsBtn.textContent = "Fullscreen";
-fsBtn.addEventListener("click", () => setImmersive(true));
+// ── Hamburger menu — the only control visible by default (top-left) ───────────
+// Holds every navigation control plus the trigger that summons the settings panel.
+const menuBtn = document.createElement("button");
+menuBtn.className = "cs-menu-btn";
+menuBtn.textContent = "☰";
+menuBtn.title = "Menu";
+menuBtn.setAttribute("aria-label", "Menu");
+menuBtn.addEventListener("click", (e) => {
+	e.stopPropagation(); // don't let the outside-click handler immediately re-close it
+	setMenuOpen(!menuOpen);
+});
+
+const menu = document.createElement("div");
+menu.className = "cs-menu";
+
+/** Build one menu row; picking it dismisses the menu, then runs the action. */
+function menuItem(label: string, onPick: () => void): HTMLButtonElement {
+	const b = document.createElement("button");
+	b.className = "cs-menu-item";
+	b.textContent = label;
+	b.addEventListener("click", () => {
+		setMenuOpen(false);
+		onPick();
+	});
+	return b;
+}
+
+const asciiBtn = menuItem("ASCII view", () => toggleMode("ascii"));
+const pixelBtn = menuItem("Pixel view", () => toggleMode("pixel"));
+const fsBtn = menuItem("Fullscreen", () => setImmersive(true));
 // Jump to the sibling nature example (same engine, different world).
-const worldBtn = document.createElement("button");
-worldBtn.className = "cs-bar-btn";
-worldBtn.textContent = "🏞 Nature";
+const worldBtn = menuItem("🏞 Nature", () => (location.href = "../nature/"));
 worldBtn.title = "Switch to the nature valley";
-worldBtn.addEventListener("click", () => (location.href = "../nature/"));
-const hint = document.createElement("span");
-hint.className = "cs-hint";
+const settingsBtn = menuItem("⚙ Settings", () => setPanelOpen(true));
+
+const hint = document.createElement("div");
+hint.className = "cs-menu-hint";
 hint.textContent =
-	"move = parallax · wheel = speed · click = flash · keys: a / p / [ ] / h / f";
-bar.append(asciiBtn, pixelBtn, fsBtn, worldBtn, hint);
-document.body.append(bar);
+	"move = parallax · wheel = speed · click = flash · keys: a / p / [ ] / m / h / f";
+
+menu.append(asciiBtn, pixelBtn, fsBtn, worldBtn, settingsBtn, hint);
+document.body.append(menuBtn, menu);
 
 // ── Immersive view: hide every control and go fullscreen; Escape (or `f`) restores ──
-const controls: HTMLElement[] = [panel.el, bar];
-let immersive = false;
 function setImmersive(on: boolean): void {
 	if (on === immersive) return;
 	immersive = on;
-	for (const el of controls) el.style.display = on ? "none" : "";
+	if (on) menuOpen = false; // don't leave a dangling menu to reappear on return
+	applyVisibility();
 	if (on) document.documentElement.requestFullscreen?.().catch(() => {});
 	else if (document.fullscreenElement) {
 		document.exitFullscreen?.().catch(() => {});
@@ -142,6 +181,10 @@ function setImmersive(on: boolean): void {
 // Leaving browser fullscreen (Escape, the window chrome, …) restores the controls.
 document.addEventListener("fullscreenchange", () => {
 	if (!document.fullscreenElement && immersive) setImmersive(false);
+});
+// Dismiss the menu on an outside click (the button stops its own click from bubbling).
+document.addEventListener("click", (e) => {
+	if (menuOpen && !menu.contains(e.target as Node)) setMenuOpen(false);
 });
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
@@ -152,13 +195,17 @@ addEventListener("keydown", (e) => {
 	) {
 		return;
 	}
-	if (e.key === "a") toggleMode("ascii");
+	if (e.key === "Escape") {
+		if (menuOpen) setMenuOpen(false);
+	} else if (e.key === "a") toggleMode("ascii");
 	else if (e.key === "p") toggleMode("pixel");
 	else if (e.key === "[") adjustPixelScale(-1);
 	else if (e.key === "]") adjustPixelScale(1);
-	else if (e.key === "h") panel.toggle();
+	else if (e.key === "m") setMenuOpen(!menuOpen);
+	else if (e.key === "h") setPanelOpen(!panelOpen);
 	else if (e.key === "f") setImmersive(!immersive);
 });
 
-// Expose for console poking.
+// Render the initial state (hamburger only) and expose handles for console poking.
+applyVisibility();
 Object.assign(globalThis, { handle, panel });
