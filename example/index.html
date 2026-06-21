@@ -2,225 +2,48 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
+		<!-- `viewport-fit=cover` lets the canvas reach under the notch; the chrome reads the
+		     safe-area insets so nothing important hides there. -->
 		<meta
 			name="viewport"
 			content="width=device-width, initial-scale=1.0, viewport-fit=cover"
 		/>
-		<title>@marianmeres/cityscape — pick an example</title>
+		<title>@marianmeres/cityscape — three worlds on one engine</title>
 		<meta
 			name="description"
-			content="Two procedurally-generated parallax worlds on one engine: a night city skyline and a sunlit nature valley."
+			content="An installable demo: a night city skyline, a sunlit nature valley and a polyomino puzzle — three worlds on one headless engine with a swappable Canvas · ASCII · Pixel renderer seam."
 		/>
+
+		<!-- PWA / installability. The router rewrites theme-color per world. -->
+		<link rel="manifest" href="./manifest.webmanifest" />
+		<meta name="theme-color" content="#0a0f1e" />
+		<meta name="color-scheme" content="dark light" />
+
+		<!-- iOS home-screen app: run standalone (no Safari chrome), drawing under the
+		     translucent status bar for an edge-to-edge full-screen feel. -->
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="Cityscape" />
+		<link rel="apple-touch-icon" href="./icons/apple-touch-180.png" />
+
 		<link
 			rel="icon"
 			href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌃</text></svg>"
 		/>
-		<style>
-			* {
-				box-sizing: border-box;
-			}
-			html, body {
-				height: 100%;
-				margin: 0;
-			}
-			body {
-				min-height: 100vh;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				gap: 28px;
-				padding: 32px;
-				font-family: ui-sans-serif, system-ui, sans-serif;
-				color: #e8eefc;
-				background: radial-gradient(
-					1200px 600px at 50% -10%,
-					#16223f 0%,
-					#0a0f1e 55%,
-					#06080f 100%
-				);
-			}
-			header {
-				text-align: center;
-				max-width: 640px;
-			}
-			h1 {
-				margin: 0 0 8px;
-				font-size: clamp(20px, 3vw, 30px);
-				letter-spacing: 0.01em;
-			}
-			.tagline {
-				margin: 0;
-				opacity: 0.7;
-				font-size: 14px;
-				line-height: 1.5;
-			}
-			.tagline code {
-				font-family: ui-monospace, Menlo, monospace;
-				background: rgba(255, 255, 255, 0.08);
-				padding: 1px 6px;
-				border-radius: 5px;
-			}
+		<link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
 
-			.cards {
-				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-				gap: 22px;
-				width: 100%;
-				max-width: 1100px;
-			}
-			.card {
-				position: relative;
-				display: flex;
-				flex-direction: column;
-				justify-content: flex-end;
-				min-height: 300px;
-				padding: 22px;
-				border-radius: 18px;
-				text-decoration: none;
-				color: inherit;
-				overflow: hidden;
-				border: 1px solid rgba(255, 255, 255, 0.14);
-				box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-				transition:
-					transform 0.18s ease,
-					box-shadow 0.18s ease,
-					border-color 0.18s ease;
-			}
-			.card:hover {
-				transform: translateY(-4px);
-				border-color: rgba(255, 255, 255, 0.32);
-				box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
-			}
-			.card .emoji {
-				font-size: 56px;
-				line-height: 1;
-				filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
-			}
-			.card h2 {
-				margin: 14px 0 4px;
-				font-size: 22px;
-			}
-			.card p {
-				margin: 0;
-				font-size: 13px;
-				line-height: 1.5;
-				opacity: 0.92;
-			}
-			.card .go {
-				margin-top: 16px;
-				align-self: flex-start;
-				font-size: 13px;
-				font-weight: 600;
-				padding: 9px 16px;
-				border-radius: 10px;
-				background: rgba(255, 255, 255, 0.16);
-				border: 1px solid rgba(255, 255, 255, 0.28);
-				backdrop-filter: blur(6px);
-			}
-
-			/* City card — Batman-night skyline. */
-			.card-city {
-				background:
-					radial-gradient(
-						120% 90% at 80% 12%,
-						rgba(122, 162, 255, 0.28),
-						transparent 60%
-					),
-					linear-gradient(180deg, #0a1030 0%, #141d44 55%, #05070f 100%);
-				color: #dbe4ff;
-			}
-			/* Nature card — sunlit valley. */
-			.card-nature {
-				background:
-					radial-gradient(
-						110% 90% at 22% 14%,
-						rgba(255, 224, 150, 0.5),
-						transparent 55%
-					),
-					linear-gradient(180deg, #2f74c8 0%, #7cb2e8 48%, #6cbf57 100%);
-				color: #0f2417;
-			}
-			.card-nature .go {
-				background: rgba(255, 255, 255, 0.4);
-				border-color: rgba(255, 255, 255, 0.6);
-			}
-			/* Shapes card — the interactive puzzle. */
-			.card-shapes {
-				background:
-					radial-gradient(
-						110% 90% at 78% 16%,
-						rgba(120, 200, 255, 0.32),
-						transparent 58%
-					),
-					linear-gradient(180deg, #1b2233 0%, #232c44 52%, #11151f 100%);
-				color: #dfe9ff;
-			}
-
-			footer {
-				font-size: 12px;
-				opacity: 0.55;
-				text-align: center;
-			}
-			footer a {
-				color: inherit;
-			}
-
-			@media (max-width: 620px) {
-				.cards {
-					grid-template-columns: 1fr;
-				}
-				.card {
-					min-height: 220px;
-				}
-			}
-		</style>
+		<!-- Panel theme tokens (scoped per [data-world]) + the app/chooser/chrome styles. -->
+		<link rel="stylesheet" href="./theme/tokens.css" />
+		<link rel="stylesheet" href="./app.css" />
 	</head>
 	<body>
-		<header>
-			<h1>@marianmeres/cityscape</h1>
-			<p class="tagline">
-				Three worlds on one headless engine — two procedurally-generated
-				parallax animations and one interactive puzzle — all sharing the same
-				swappable
-				<code>Canvas · ASCII · Pixel</code> renderer seam. Take your pick.
-			</p>
-		</header>
-
-		<main class="cards">
-			<a class="card card-city" href="./city/">
-				<div class="emoji">🌃</div>
-				<h2>Night city</h2>
-				<p>
-					A calm, dark skyline scrolling across a reflective sea — moon,
-					stars, drifting clouds, lit windows and a lamp-lit shore.
-				</p>
-				<span class="go">Enter the city →</span>
-			</a>
-			<a class="card card-nature" href="./nature/">
-				<div class="emoji">🏞️</div>
-				<h2>Nature valley</h2>
-				<p>
-					A sunlit, day-cycling valley — rolling forested hills, snow-capped
-					peaks, a lake and cabins, with seasons, weather and wildlife.
-				</p>
-				<span class="go">Wander the valley →</span>
-			</a>
-			<a class="card card-shapes" href="./shapes/">
-				<div class="emoji">🧩</div>
-				<h2>Shapes</h2>
-				<p>
-					The interactive one: a polyomino puzzle. Rotate, flip and drag the
-					scattered pieces back into the figure — in the fewest moves.
-				</p>
-				<span class="go">Solve the figure →</span>
-			</a>
-		</main>
-
-		<footer>
-			The animation is the demo; the
-			<a href="https://github.com/marianmeres/cityscape">architecture</a> is the
-			point.
-		</footer>
+		<!--
+			The single SPA mount point. main.ts renders the chooser (#/) or a world stage
+			(#/city · #/nature · #/shapes) into it, swapping client-side. Build the bundle first:
+			  deno task example:build      (or example:watch)
+		-->
+		<div id="app"></div>
+		<script type="module" src="./dist/bundle.js"></script>
 	</body>
 </html>

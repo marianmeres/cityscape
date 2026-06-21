@@ -14,9 +14,9 @@ nature valley). They are siblings — neither imports the other; both depend onl
 - **Stack**: Deno · TypeScript · DOM (browser runtime only) · published to JSR + npm.
 - **Test**: `deno task test` (= `deno test -A`) | **Type-check**: `deno task check` (= `deno check src/ tests/`)
 - **Format/lint**: `deno fmt` · `deno lint` (tabs, 90 cols, indent 4)
-- **Example**: `deno task theme:build` then `deno task example:build` → `example/city/dist/bundle.js`; serve over `http://`.
-- **Nature example**: `deno task example-nature:theme` then `deno task example-nature:build` → `example/nature/dist/bundle.js`.
-- **Chooser**: `example/index.html` is a static landing page linking to `example/city/` and `example/nature/`.
+- **Example**: one installable SPA. `deno task example:theme` (once) then `deno task example:build` → `example/dist/bundle.js`; `deno task serve` and open `http://localhost:8000/example/`.
+- **SPA shape**: `example/main.ts` is a hash router over `#app` — a chooser (`#/`) plus the three worlds (`#/city`, `#/nature`, `#/shapes`). Each route is a `ViewFactory` returning a leak-free `destroy()`; switching worlds is a client-side swap. `example/manifest.webmanifest` + iOS meta in `index.html` make it home-screen-installable + full-screen on mobile.
+- **Old URLs**: `example/{city,nature,shapes}/index.html` are now redirects into the SPA routes.
 
 ## Project Structure
 
@@ -47,7 +47,7 @@ src/
   render/canvas/  ⮕ "./render/canvas"  · render/ascii/  ⮕ "./render/ascii"  · render/pixelart/  ⮕ "./render/pixelart"
   runtime/{mount,mount-nature}.ts   audio/{ambient,nature}-audio.ts   ui/panel.ts  ⮕ "./ui"   (the only DOM code)
 tests/                 DOM-free unit suite (mirrors src/ modules; covers both domains)
-example/               index.html (chooser) + city/ + nature/ — each a full-page demo (index.html + main.ts + theme)
+example/               installable SPA: index.html (shell) + main.ts (hash router) + chooser.ts + worlds/{scape,shapes}.ts + manifest/sw/icons/theme; {city,nature,shapes}/ are redirect stubs
 docs/SPEC.md           design & architecture (read this first)
 ```
 

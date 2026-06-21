@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+	<!--
+		Master app icon for the installable example SPA. A calm night skyline under a moon —
+		the project's signature look (🌃). Full-bleed background; the focal content (moon + skyline)
+		stays within the central ~80% safe zone so the same artwork doubles as a maskable icon.
+		Rasterised to PNG by icons/_generate.sh (rsvg-convert).
+	-->
+	<defs>
+		<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#16223f" />
+			<stop offset="0.55" stop-color="#0a0f1e" />
+			<stop offset="1" stop-color="#06080f" />
+		</linearGradient>
+		<radialGradient id="glow" cx="0.72" cy="0.26" r="0.5">
+			<stop offset="0" stop-color="#7aa2ff" stop-opacity="0.42" />
+			<stop offset="1" stop-color="#7aa2ff" stop-opacity="0" />
+		</radialGradient>
+		<linearGradient id="moon" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#f4f7ff" />
+			<stop offset="1" stop-color="#c7d6ff" />
+		</linearGradient>
+	</defs>
+
+	<!-- Full-bleed night sky (reaches every edge → safe under a circular/rounded mask). -->
+	<rect width="512" height="512" fill="url(#sky)" />
+	<rect width="512" height="512" fill="url(#glow)" />
+
+	<!-- Stars (kept inside the safe zone). -->
+	<g fill="#cdd9ff">
+		<circle cx="150" cy="150" r="2.4" opacity="0.9" />
+		<circle cx="210" cy="120" r="1.6" opacity="0.7" />
+		<circle cx="300" cy="160" r="1.8" opacity="0.8" />
+		<circle cx="180" cy="210" r="1.4" opacity="0.6" />
+		<circle cx="360" cy="210" r="2" opacity="0.75" />
+		<circle cx="250" cy="200" r="1.3" opacity="0.55" />
+	</g>
+
+	<!-- Moon, top-right but well within the safe zone. -->
+	<circle cx="352" cy="168" r="46" fill="url(#moon)" />
+	<circle cx="370" cy="156" r="46" fill="#0a0f1e" opacity="0.92" />
+
+	<!-- Skyline silhouette — a row of towers with a few lit windows. -->
+	<g>
+		<rect x="120" y="330" width="48" height="120" rx="3" fill="#0d1530" />
+		<rect x="176" y="288" width="40" height="162" rx="3" fill="#101a3a" />
+		<rect x="224" y="356" width="34" height="94" rx="3" fill="#0d1530" />
+		<rect x="266" y="300" width="44" height="150" rx="3" fill="#111c40" />
+		<rect x="318" y="344" width="36" height="106" rx="3" fill="#0d1530" />
+		<rect x="362" y="312" width="42" height="138" rx="3" fill="#101a3a" />
+		<g fill="#ffd27a">
+			<rect x="186" y="306" width="7" height="9" rx="1" />
+			<rect x="199" y="306" width="7" height="9" rx="1" />
+			<rect x="186" y="326" width="7" height="9" rx="1" />
+			<rect x="278" y="318" width="7" height="9" rx="1" opacity="0.9" />
+			<rect x="291" y="318" width="7" height="9" rx="1" />
+			<rect x="278" y="340" width="7" height="9" rx="1" />
+			<rect x="372" y="330" width="7" height="9" rx="1" opacity="0.85" />
+			<rect x="385" y="330" width="7" height="9" rx="1" />
+		</g>
+	</g>
+
+	<!-- Reflective water hint at the base (within safe zone). -->
+	<rect x="96" y="450" width="320" height="6" rx="3" fill="#1b2a52" opacity="0.7" />
+</svg>

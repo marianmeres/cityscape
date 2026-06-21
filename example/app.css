@@ -1,0 +1,372 @@
+/*
+	One stylesheet for the example SPA. It covers three things:
+
+	  1. the app shell  — a fixed, full-viewport stage that fills the screen edge-to-edge
+	                       (incl. under a phone's notch, via `viewport-fit=cover` + safe-area insets),
+	  2. the chooser    — the landing view (ported from the old static example/index.html), and
+	  3. world chrome   — the hamburger menu / toast / ASCII overlay shared by the city + nature
+	                       worlds (one token-driven class set, themed per `[data-world]`), plus the
+	                       small shapes menu.
+
+	Panel + shapes-HUD styling is injected by the library itself (createControlPanel / mountShapes),
+	so it isn't here. World panels read the `--app-color-*` tokens scoped per `[data-world]` in
+	theme/tokens.css, so the same `.scape-*` chrome goes dark for the city and light for the valley.
+*/
+
+/* ── Reset + shell ─────────────────────────────────────────────────────────── */
+* {
+	box-sizing: border-box;
+}
+html,
+body {
+	height: 100%;
+	margin: 0;
+}
+body {
+	overflow: hidden;
+	background: #04060d;
+	color: #e8eefc;
+	font-family: ui-sans-serif, system-ui, sans-serif;
+	/* Honour the notch: content can still go edge-to-edge, but we read these insets where it
+	   matters (floating chrome) so nothing important hides under the status bar / home indicator. */
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* The single mount point. Each route swaps its child: the chooser, or one world stage. */
+#app {
+	position: fixed;
+	inset: 0;
+}
+
+/* A world stage — a full-viewport positioned box the mount fills with its 100%×100% canvas.
+   Carries `data-world` so theme/tokens.css can theme the panel + chrome that live inside it. */
+.stage {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+}
+/* Native form controls in the panel (sliders, checkboxes) follow each world's mode. */
+.stage[data-world="city"],
+.stage[data-world="shapes"] {
+	color-scheme: dark;
+}
+.stage[data-world="nature"] {
+	color-scheme: light;
+}
+
+/* ── Chooser (the landing view) ────────────────────────────────────────────── */
+.chooser {
+	position: absolute;
+	inset: 0;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 28px;
+	padding: calc(32px + var(--safe-top)) calc(32px + var(--safe-right))
+		calc(32px + var(--safe-bottom)) calc(32px + var(--safe-left));
+	background: radial-gradient(
+		1200px 600px at 50% -10%,
+		#16223f 0%,
+		#0a0f1e 55%,
+		#06080f 100%
+	);
+}
+.chooser-header {
+	text-align: center;
+	max-width: 640px;
+}
+.chooser h1 {
+	margin: 0 0 8px;
+	font-size: clamp(20px, 3vw, 30px);
+	letter-spacing: 0.01em;
+}
+.chooser .tagline {
+	margin: 0;
+	opacity: 0.7;
+	font-size: 14px;
+	line-height: 1.5;
+}
+.chooser .tagline code {
+	font-family: ui-monospace, Menlo, monospace;
+	background: rgba(255, 255, 255, 0.08);
+	padding: 1px 6px;
+	border-radius: 5px;
+}
+
+.cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 22px;
+	width: 100%;
+	max-width: 1100px;
+}
+.card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	min-height: 300px;
+	padding: 22px;
+	border-radius: 18px;
+	text-decoration: none;
+	color: inherit;
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+	cursor: pointer;
+	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.card:hover {
+	transform: translateY(-4px);
+	border-color: rgba(255, 255, 255, 0.32);
+	box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
+}
+.card .emoji {
+	font-size: 56px;
+	line-height: 1;
+	filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+}
+.card h2 {
+	margin: 14px 0 4px;
+	font-size: 22px;
+}
+.card p {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.5;
+	opacity: 0.92;
+}
+.card .go {
+	margin-top: 16px;
+	align-self: flex-start;
+	font-size: 13px;
+	font-weight: 600;
+	padding: 9px 16px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.16);
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	backdrop-filter: blur(6px);
+}
+
+/* City card — Batman-night skyline. */
+.card-city {
+	background:
+		radial-gradient(120% 90% at 80% 12%, rgba(122, 162, 255, 0.28), transparent 60%),
+		linear-gradient(180deg, #0a1030 0%, #141d44 55%, #05070f 100%);
+	color: #dbe4ff;
+}
+/* Nature card — sunlit valley. */
+.card-nature {
+	background:
+		radial-gradient(110% 90% at 22% 14%, rgba(255, 224, 150, 0.5), transparent 55%),
+		linear-gradient(180deg, #2f74c8 0%, #7cb2e8 48%, #6cbf57 100%);
+	color: #0f2417;
+}
+.card-nature .go {
+	background: rgba(255, 255, 255, 0.4);
+	border-color: rgba(255, 255, 255, 0.6);
+}
+/* Shapes card — the interactive puzzle. */
+.card-shapes {
+	background:
+		radial-gradient(110% 90% at 78% 16%, rgba(120, 200, 255, 0.32), transparent 58%),
+		linear-gradient(180deg, #1b2233 0%, #232c44 52%, #11151f 100%);
+	color: #dfe9ff;
+}
+
+.chooser footer {
+	font-size: 12px;
+	opacity: 0.55;
+	text-align: center;
+}
+.chooser footer a {
+	color: inherit;
+}
+
+@media (max-width: 620px) {
+	.cards {
+		grid-template-columns: 1fr;
+	}
+	.card {
+		min-height: 220px;
+	}
+}
+
+/* ── Shared world chrome (city + nature) ───────────────────────────────────── */
+/* The ASCII view: a full-screen monospace grid, hidden until toggled. Colours follow the
+   active world's scoped tokens (dark city / light valley). */
+.scape-ascii {
+	display: none;
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	padding: 0;
+	font-family: ui-monospace, "SF Mono", Menlo, monospace;
+	font-size: 11px;
+	line-height: 12px;
+	letter-spacing: 0.5px;
+	white-space: pre;
+	overflow: hidden;
+	color: var(--app-color-foreground, #bcd2ff);
+	background: var(--app-color-background, #04060d);
+	z-index: 5;
+	pointer-events: none;
+}
+
+/* Hamburger button — the only control visible by default (top-left, clear of the notch). */
+.scape-menu-btn {
+	position: absolute;
+	left: calc(16px + var(--safe-left));
+	top: calc(16px + var(--safe-top));
+	z-index: 11;
+	width: 40px;
+	height: 40px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18px;
+	line-height: 1;
+	border-radius: 10px;
+	border: 1px solid var(--app-color-border, rgba(120, 140, 200, 0.22));
+	background: var(--app-color-surface, rgba(14, 20, 38, 0.82));
+	color: var(--app-color-foreground, #dbe4ff);
+	cursor: pointer;
+	backdrop-filter: blur(10px);
+}
+.scape-menu-btn:hover {
+	background: var(--app-color-muted, rgba(255, 255, 255, 0.08));
+}
+/* The dropdown the hamburger reveals (JS toggles display). */
+.scape-menu {
+	position: absolute;
+	left: calc(16px + var(--safe-left));
+	top: calc(64px + var(--safe-top));
+	z-index: 11;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	width: 200px;
+	padding: 8px;
+	border-radius: 12px;
+	border: 1px solid var(--app-color-border, rgba(120, 140, 200, 0.22));
+	background: var(--app-color-surface, rgba(14, 20, 38, 0.92));
+	color: var(--app-color-foreground, #dbe4ff);
+	backdrop-filter: blur(10px);
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+.scape-menu-item {
+	font: 13px/1 ui-sans-serif, system-ui, sans-serif;
+	text-align: left;
+	padding: 9px 10px;
+	border-radius: 8px;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+.scape-menu-item:hover {
+	background: var(--app-color-muted, rgba(255, 255, 255, 0.1));
+}
+.scape-menu-hint {
+	padding: 6px 10px 2px;
+	font-size: 11px;
+	line-height: 1.4;
+	opacity: 0.65;
+	color: var(--app-color-muted-foreground, #8a96c0);
+}
+
+/* Bottom-centre toast (e.g. "Pixel size 4"). */
+.scape-toast {
+	position: absolute;
+	left: 50%;
+	bottom: calc(24px + var(--safe-bottom));
+	transform: translate(-50%, 12px);
+	z-index: 20;
+	padding: 8px 14px;
+	border-radius: 999px;
+	font-size: 12px;
+	color: var(--app-color-foreground, #dbe4ff);
+	background: var(--app-color-surface, rgba(14, 20, 38, 0.92));
+	border: 1px solid var(--app-color-border, rgba(120, 140, 200, 0.22));
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.2s, transform 0.2s;
+}
+.scape-toast-show {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}
+
+@media (max-width: 560px) {
+	.scape-menu-hint {
+		display: none;
+	}
+}
+
+/* ── Shapes menu (the puzzle builds its own HUD; this is just the corner menu) ── */
+.shp-menu-btn {
+	position: absolute;
+	left: calc(16px + var(--safe-left));
+	top: calc(16px + var(--safe-top));
+	z-index: 11;
+	width: 40px;
+	height: 40px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18px;
+	border-radius: 10px;
+	border: 1px solid rgba(130, 150, 200, 0.28);
+	background: rgba(40, 48, 66, 0.82);
+	color: #eef2fb;
+	cursor: pointer;
+	backdrop-filter: blur(10px);
+}
+.shp-menu-btn:hover {
+	background: rgba(56, 66, 90, 0.92);
+}
+.shp-menu {
+	position: absolute;
+	left: calc(16px + var(--safe-left));
+	top: calc(64px + var(--safe-top));
+	z-index: 11;
+	display: none;
+	flex-direction: column;
+	gap: 4px;
+	width: 190px;
+	padding: 8px;
+	border-radius: 12px;
+	border: 1px solid rgba(130, 150, 200, 0.28);
+	background: rgba(28, 33, 44, 0.96);
+	color: #eaf0fb;
+	backdrop-filter: blur(10px);
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+}
+.shp-menu-item {
+	font: 13px/1 ui-sans-serif, system-ui, sans-serif;
+	text-align: left;
+	padding: 9px 10px;
+	border-radius: 8px;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	text-decoration: none;
+	display: flex;
+	align-items: center;
+	gap: 9px;
+}
+.shp-menu-item:hover {
+	background: rgba(130, 150, 200, 0.14);
+}
+.shp-menu-btn svg,
+.shp-menu-item svg {
+	display: block;
+	flex: 0 0 auto;
+	opacity: 0.92;
+}

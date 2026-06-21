@@ -32,24 +32,19 @@
   },
   "lint": {
     "exclude": [
-      "example/city/dist",
-      "example/nature/dist",
-      "example/shapes/dist"
+      "example/dist"
     ]
   },
   "tasks": {
     "test": "deno test -A",
     "test:watch": "deno test -A --watch",
     "check": "deno check src/ tests/",
-    "city:build": "deno run -A jsr:@marianmeres/deno-build --root example/city --entry main.ts --outdir example/city/dist",
-    "city:watch": "deno run -A jsr:@marianmeres/deno-build --root example/city --entry main.ts --outdir example/city/dist --watch --watch-dir src",
-    "nature:build": "deno run -A jsr:@marianmeres/deno-build --root example/nature --entry main.ts --outdir example/nature/dist",
-    "nature:watch": "deno run -A jsr:@marianmeres/deno-build --root example/nature --entry main.ts --outdir example/nature/dist --watch --watch-dir src",
-    "shapes:build": "deno run -A jsr:@marianmeres/deno-build --root example/shapes --entry main.ts --outdir example/shapes/dist",
-    "shapes:watch": "deno run -A jsr:@marianmeres/deno-build --root example/shapes --entry main.ts --outdir example/shapes/dist --watch --watch-dir src",
-    "city:theme": "deno run -A example/city/theme/_generate.ts",
-    "nature:theme": "deno run -A example/nature/theme/_generate.ts",
-    "build:all": "deno task city:theme && deno task city:build && deno task nature:theme && deno task nature:build && deno task shapes:build",
+    "example:build": "deno run -A jsr:@marianmeres/deno-build --root example --entry main.ts --outdir example/dist",
+    "example:watch": "deno run -A jsr:@marianmeres/deno-build --root example --entry main.ts --outdir example/dist --watch --watch-dir src",
+    "example:theme": "deno run -A example/theme/_generate.ts",
+    "example:icons": "example/icons/_generate.sh",
+    "serve": "deno run -A jsr:@std/http/file-server -p 8000 --host 0.0.0.0 .",
+    "build:all": "deno task example:theme && deno task example:build",
     "npm:build": "deno run -A scripts/build-npm.ts",
     "npm:publish": "deno run -A scripts/build-npm.ts && cd ./.npm-dist && npm publish --access=public",
     "release": "deno run -A jsr:@marianmeres/deno-release",
@@ -64,6 +59,9 @@
     "@std/assert": "jsr:@std/assert@^1"
   },
   "fmt": {
+    "exclude": [
+      "example/dist"
+    ],
     "useTabs": true,
     "lineWidth": 90,
     "indentWidth": 4,

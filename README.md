@@ -107,15 +107,24 @@ import { mountCityscape } from "jsr:@marianmeres/cityscape";
 ## Run the example
 
 ```sh
-deno task theme:build      # generate the panel's design-tokens CSS (once)
-deno task example:build    # bundle example/city/main.ts → example/city/dist/bundle.js
-# then serve the repo over http:// and open example/ (a chooser) — or example/city/ directly
+deno task example:theme    # generate the panel's design-tokens CSS (once)
+deno task example:build    # bundle example/main.ts → example/dist/bundle.js
+deno task serve            # static-serve the repo, then open http://localhost:8000/example/
 ```
 
-In the example: **move** the pointer for parallax + vertical pan · **wheel** to scrub speed ·
-**click** to flash a building's windows · press **`a`** to toggle the ASCII view · **`p`** for the
-pixel-art view (**`[`** / **`]`** adjust the pixel size) · **`h`** to hide the panel · the **🔗**
-button copies a permalink that restores the exact look.
+The example is an **installable, hash-routed SPA** — one app, one manifest: a chooser landing page
+plus the three worlds at `#/city`, `#/nature`, `#/shapes`. Switching worlds is a client-side swap
+(no reload). On a phone, **Add to Home Screen** launches it full-screen — the manifest declares
+`display: fullscreen` and the iOS standalone meta tags make it run chrome-free, edge-to-edge under
+the notch.
+
+In any world: **move** the pointer for parallax + vertical pan · **wheel** to scrub speed · **click**
+to flash/ripple · press **`a`** to toggle the ASCII view · **`p`** for the pixel-art view (**`[`** /
+**`]`** adjust the pixel size) · **`h`** to hide the panel · **`f`** for immersive fullscreen.
+
+> Installability (the Android install prompt, the offline service worker) needs a secure context —
+> HTTPS or `localhost`. Over a plain-HTTP LAN address the service worker won't register, but iOS
+> Add-to-Home-Screen full-screen still works from the manifest + Apple meta tags alone.
 
 ### A second world on the same engine — `naturescape`
 
@@ -131,14 +140,15 @@ import { mountNaturescape } from "@marianmeres/cityscape"; // (or build the exam
 mountNaturescape(); // a calm, sunny, full-page valley
 ```
 
+The valley is simply the `#/nature` route of the same example SPA — no separate build:
+
 ```sh
-deno task example-nature:theme    # generate the panel CSS (once)
-deno task example-nature:build    # bundle example/nature/main.ts → example/nature/dist/bundle.js
-# then serve the repo over http:// and open example/nature/ (or use the chooser at example/)
+deno task example:build    # one bundle drives the chooser + all three worlds
+# then `deno task serve` and open http://localhost:8000/example/#/nature
 ```
 
-Both examples carry a button to hop to the other world, and `example/index.html` is a small chooser
-between them.
+Each world's menu hops straight to the siblings (and back to the chooser), and the chooser at `#/`
+is the SPA's landing route.
 
 ## Headless usage (your own loop / renderer)
 

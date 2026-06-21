@@ -222,7 +222,7 @@ vanilla's convention.
 2. **Cityscape domain** — config+schema, palette, mood, buildings, sky, generation, scene, events.
 3. **Renderers** — CanvasRenderer + AsciiRenderer.
 4. **Runtime/UI/Audio** — mount, control panel (vanilla+design-tokens), ambient audio.
-5. **Example** — `example/index.html` + `example/main.ts` + generated theme CSS; bundle with deno-build.
+5. **Example** — one installable, hash-routed SPA: `example/index.html` (shell + manifest/iOS meta) + `example/main.ts` (router over `#app`) + `chooser.ts` + `worlds/{scape,shapes}.ts` + generated theme tokens + a service worker; bundle with deno-build. Full-screen on mobile via Add-to-Home-Screen.
 6. **Tests** — thorough DOM-free suite; `deno test` + `deno check` green.
 7. **Adversarial review** — DOM-purity (no DOM import reaches engine/cityscape), correctness, coverage; fix.
 
@@ -249,7 +249,7 @@ all cycle long); `features/` are the land's "buildings" (trees/cabins/rocks/hill
 meadow → grove → forest → foothills → alpine so the landscape "makes sense" exactly as the city's
 district FSM does. The two domains are siblings: neither imports the other; both are DOM-free
 (the purity test covers both) and fully deterministic from `seed`. `mountNaturescape()` is the
-nature counterpart of `mountCityscape()`. See `example/nature/` for the live demo (and
-`example/index.html` for the chooser between the two worlds).
+nature counterpart of `mountCityscape()`. It's the `#/nature` route of the example SPA (the chooser
+at `#/` is the landing route; `worlds/scape.ts` drives both the city and the valley from one factory).
 
 See [PROGRESS.md](./PROGRESS.md) for live status.
