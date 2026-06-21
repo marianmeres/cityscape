@@ -395,6 +395,62 @@ const PALETTES = {
         hueBase: 0,
         sat: 0,
         light: 0.62
+    },
+    ocean: {
+        label: "Ocean",
+        background: rgb(10, 22, 34),
+        cellEmpty: rgb(20, 38, 54),
+        outline: rgb(46, 78, 102),
+        tray: rgb(14, 30, 44),
+        text: rgb(200, 226, 240),
+        placed: rgb(222, 246, 255),
+        select: rgb(120, 230, 235),
+        celebrate: rgb(120, 220, 200),
+        hueBase: 190,
+        sat: 0.55,
+        light: 0.58
+    },
+    sunset: {
+        label: "Sunset",
+        background: rgb(28, 18, 30),
+        cellEmpty: rgb(48, 30, 44),
+        outline: rgb(110, 70, 92),
+        tray: rgb(38, 24, 36),
+        text: rgb(248, 224, 224),
+        placed: rgb(255, 245, 235),
+        select: rgb(255, 210, 120),
+        celebrate: rgb(255, 160, 120),
+        hueBase: 20,
+        sat: 0.62,
+        light: 0.62
+    },
+    forest: {
+        label: "Forest",
+        background: rgb(14, 24, 18),
+        cellEmpty: rgb(26, 40, 30),
+        outline: rgb(56, 84, 62),
+        tray: rgb(18, 30, 22),
+        text: rgb(214, 232, 214),
+        placed: rgb(240, 250, 235),
+        select: rgb(220, 230, 130),
+        celebrate: rgb(160, 220, 140),
+        hueBase: 110,
+        sat: 0.45,
+        light: 0.55
+    },
+    neon: {
+        label: "Neon",
+        background: rgb(8, 8, 14),
+        cellEmpty: rgb(20, 18, 32),
+        outline: rgb(60, 50, 96),
+        tray: rgb(14, 12, 22),
+        text: rgb(228, 224, 248),
+        placed: rgb(255, 255, 255),
+        select: rgb(120, 255, 235),
+        celebrate: rgb(255, 120, 235),
+        hueBase: 280,
+        sat: 0.85,
+        light: 0.62
     }
 };
 const PALETTE_NAMES = Object.keys(PALETTES);
@@ -424,6 +480,127 @@ const CONFIG_SCHEMA = [
                 value: n,
                 label: PALETTES[n].label
             }))
+    },
+    {
+        key: "vignette",
+        label: "Vignette",
+        group: "Look",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.35,
+        help: "Darken the frame toward the corners (+ faint grain). 0 = off."
+    },
+    {
+        key: "bgShade",
+        label: "Backdrop shade",
+        group: "Look",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.3,
+        help: "Vertical lift→shadow gradient over the background, for depth. 0 = flat."
+    },
+    {
+        key: "cornerRadius",
+        label: "Corner round",
+        group: "Look",
+        type: "range",
+        min: 0,
+        max: 0.5,
+        step: 0.02,
+        default: 0.18,
+        help: "Round the cells, tiles and tray (fraction of a cell). 0 = sharp squares."
+    },
+    {
+        key: "borderWidth",
+        label: "Border weight",
+        group: "Look",
+        type: "range",
+        min: 0.02,
+        max: 0.2,
+        step: 0.01,
+        default: 0.07,
+        help: "Grid-line and tile-border thickness (fraction of a cell)."
+    },
+    {
+        key: "borderAlpha",
+        label: "Border opacity",
+        group: "Look",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0,
+        help: "Opacity of a resting piece's border. 0 = invisible; the active (selected/dragged) " + "piece always shows its highlight."
+    },
+    {
+        key: "gloss",
+        label: "Tile gloss",
+        group: "Look",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.5,
+        help: "Strength of the top-light sheen on each tile. 0 = flat matte."
+    },
+    {
+        key: "pieceGlow",
+        label: "Piece glow",
+        group: "Look",
+        type: "range",
+        min: 0,
+        max: 0.8,
+        step: 0.05,
+        default: 0,
+        help: "A soft coloured halo behind each piece (neon look). 0 = off."
+    },
+    {
+        key: "panelRadius",
+        label: "Popup round",
+        group: "Popup",
+        type: "range",
+        min: 0,
+        max: 40,
+        step: 1,
+        default: 18,
+        help: "Corner radius of the start/solved cards, in pixels."
+    },
+    {
+        key: "panelShadow",
+        label: "Popup shadow",
+        group: "Popup",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.7,
+        help: "Drop-shadow strength under the cards. 0 = flat."
+    },
+    {
+        key: "panelBlur",
+        label: "Popup blur",
+        group: "Popup",
+        type: "range",
+        min: 0,
+        max: 24,
+        step: 1,
+        default: 4,
+        help: "Backdrop blur of the dimmed area behind a card, in pixels."
+    },
+    {
+        key: "panelOpacity",
+        label: "Dim strength",
+        group: "Popup",
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        default: 0.6,
+        help: "How strongly the board is dimmed behind a card."
     },
     {
         key: "startPieces",
@@ -1148,6 +1325,12 @@ class GameState {
         }
         return null;
     }
+    pieceAt(x, y) {
+        for(let i = this.pieces.length - 1; i >= 0; i--){
+            if (this.#hit(this.pieces[i], x, y)) return this.pieces[i].shape.id;
+        }
+        return null;
+    }
     pointerDown(x, y) {
         const id = this.pickAt(x, y);
         if (id == null) {
@@ -1207,14 +1390,14 @@ class GameState {
         p.tx = rest.x;
         p.ty = rest.y;
     }
-    rotateSelected() {
-        this.#reorient((o)=>rotateCW(o));
+    rotateSelected(id) {
+        this.#reorient((o)=>rotateCW(o), id);
     }
-    rotateSelectedCCW() {
-        this.#reorient((o)=>rotateCCW(o));
+    rotateSelectedCCW(id) {
+        this.#reorient((o)=>rotateCCW(o), id);
     }
-    flipSelected() {
-        this.#reorient((o)=>flip(o));
+    flipSelected(id) {
+        this.#reorient((o)=>flip(o), id);
     }
     selectNext() {
         const order = this.pieces.filter((p)=>p.state !== "placed").map((p)=>p.shape.id);
@@ -1226,9 +1409,12 @@ class GameState {
         this.selectedId = order[(at + 1) % order.length];
     }
     undo() {
-        const id = this.#placedOrder.pop();
-        if (id == null) return;
+        const id = this.#placedOrder[this.#placedOrder.length - 1];
+        if (id != null) this.removePlaced(id);
+    }
+    removePlaced(id) {
         const p = this.pieces[id];
+        if (p.state !== "placed") return false;
         if (p.placedCells) {
             for (const k of p.placedCells)this.#occupied.delete(k);
         }
@@ -1240,8 +1426,11 @@ class GameState {
         const rest = this.#trayRest(p);
         p.tx = rest.x;
         p.ty = rest.y;
+        const i = this.#placedOrder.indexOf(id);
+        if (i >= 0) this.#placedOrder.splice(i, 1);
         this.moves++;
         this.phase = "playing";
+        return true;
     }
     hint() {
         for (const p of this.pieces){
@@ -1256,12 +1445,12 @@ class GameState {
             return;
         }
     }
-    #reorient(fn) {
-        const id = this.draggingId ?? this.selectedId;
+    #reorient(fn, id = this.draggingId ?? this.selectedId) {
         if (id == null) return;
         const p = this.pieces[id];
-        if (p.state === "placed") return;
+        if (!p || p.state === "placed") return;
         p.orientation = fn(p.orientation);
+        this.selectedId = id;
         this.moves++;
         if (p.state === "tray") {
             const rest = this.#trayRest(p);
@@ -1340,14 +1529,15 @@ class DisplayListBuilder {
         this.commands.push(cmd);
         return this;
     }
-    rect(x, y, w, h, color) {
+    rect(x, y, w, h, color, radius) {
         this.commands.push({
             kind: "rect",
             x,
             y,
             w,
             h,
-            color
+            color,
+            radius
         });
         return this;
     }
@@ -1416,31 +1606,51 @@ class DisplayListBuilder {
         return this;
     }
 }
-function drawGame(out, game, paletteName) {
-    const pal = getPalette(paletteName);
+function drawGame(out, game, config) {
+    const pal = getPalette(config.palette);
     const layout = game.layout;
     const cell = layout.cell;
-    const gap = Math.max(1, cell * 0.07);
+    const gap = Math.max(1, cell * config.borderWidth);
     out.rect(0, 0, out.width, out.height, pal.background);
+    if (config.bgShade > 0) {
+        const k = config.bgShade;
+        out.gradient(0, 0, out.width, out.height, [
+            {
+                at: 0,
+                color: rgb(255, 255, 255, 0.05 * k)
+            },
+            {
+                at: 0.5,
+                color: rgb(255, 255, 255, 0)
+            },
+            {
+                at: 1,
+                color: rgb(0, 0, 0, 0.5 * k)
+            }
+        ], true);
+    }
     const t = layout.trayRect;
-    out.rect(t.x, t.y, t.w, t.h, pal.tray);
+    out.rect(t.x, t.y, t.w, t.h, pal.tray, config.cornerRadius * layout.trayCell * 1.2);
     const h = gap / 2;
+    const rInt = config.cornerRadius * (cell - gap);
+    const rOut = rInt > 0 ? rInt + gap : 0;
+    const figHas = (r1, c)=>r1 >= 0 && r1 < layout.figH && c >= 0 && c < layout.figW;
     for(let r1 = 0; r1 < layout.figH; r1++){
         for(let c = 0; c < layout.figW; c++){
             const { x, y } = cellToScreen(layout, r1, c);
-            out.rect(x - h, y - h, cell + gap, cell + gap, pal.outline);
+            out.rect(x - h, y - h, cell + gap, cell + gap, pal.outline, exteriorRadii(figHas, r1, c, rOut));
         }
     }
     for(let r1 = 0; r1 < layout.figH; r1++){
         for(let c = 0; c < layout.figW; c++){
             const { x, y } = cellToScreen(layout, r1, c);
-            out.rect(x + h, y + h, cell - gap, cell - gap, pal.cellEmpty);
+            out.rect(x + h, y + h, cell - gap, cell - gap, pal.cellEmpty, rInt);
         }
     }
     const top = game.draggingId ?? game.selectedId;
     const drawOne = (p, selected)=>{
         const c = p.state === "tray" ? layout.trayCell : layout.cell;
-        drawPiece(out, p, pal, c, Math.max(1, c * 0.07), selected);
+        drawPiece(out, p, pal, config, c, Math.max(1, c * config.borderWidth), selected);
     };
     for (const p of game.pieces)if (p.state === "placed") drawOne(p, false);
     for (const p of game.pieces){
@@ -1452,22 +1662,59 @@ function drawGame(out, game, paletteName) {
         out.glow(layout.originX + layout.figW * cell / 2, layout.originY + layout.figH * cell / 2, Math.max(f.w, f.h) * 0.6, withAlpha(pal.celebrate, 0.5), 1);
     }
 }
-function drawPiece(out, p, pal, cell, gap, selected) {
+function drawPiece(out, p, pal, config, cell, gap, selected) {
     const fill = pieceColor(pal, p.shape.colorIndex);
     const body = p.state === "placed" ? lighten(fill, 0.06) : fill;
-    const border = selected ? pal.select : darken(fill, 0.35);
+    const border = selected ? pal.select : withAlpha(darken(fill, 0.35), config.borderAlpha);
     const cells = orientedCells(p.shape, p.orientation);
     const h = gap / 2;
     const s = cell - gap;
+    const radius = config.cornerRadius * s;
+    const rOut = radius > 0 ? radius + gap : 0;
+    const present = new Set(cells.map((c)=>`${c.r},${c.c}`));
+    const has = (r1, c)=>present.has(`${r1},${c}`);
+    if (config.pieceGlow > 0) {
+        let minR = Infinity, minC = Infinity, maxR = -Infinity, maxC = -Infinity;
+        for (const c of cells){
+            if (c.r < minR) minR = c.r;
+            if (c.r > maxR) maxR = c.r;
+            if (c.c < minC) minC = c.c;
+            if (c.c > maxC) maxC = c.c;
+        }
+        const cx = p.x + (minC + maxC + 1) / 2 * cell;
+        const cy = p.y + (minR + maxR + 1) / 2 * cell;
+        const rad = (Math.max(maxC - minC, maxR - minR) + 1) * cell * 0.7;
+        out.glow(cx, cy, rad, withAlpha(selected ? pal.select : fill, 1), config.pieceGlow * (selected ? 1 : 0.7));
+    }
     for (const c of cells){
-        out.rect(p.x + c.c * cell - h, p.y + c.r * cell - h, cell + gap, cell + gap, border);
+        out.rect(p.x + c.c * cell - h, p.y + c.r * cell - h, cell + gap, cell + gap, border, exteriorRadii(has, c.r, c.c, rOut));
     }
     for (const c of cells){
         const x = p.x + c.c * cell + h;
         const y = p.y + c.r * cell + h;
-        out.rect(x, y, s, s, body);
-        out.rect(x, y, s, s * 0.4, withAlpha(lighten(body, 0.25), 0.5));
+        out.rect(x, y, s, s, body, radius);
+        if (config.gloss > 0) {
+            out.rect(x, y, s, s * 0.45, withAlpha(lighten(body, 0.25), 0.55 * config.gloss), radius);
+        }
     }
+}
+function exteriorRadii(has, r1, c, radius) {
+    if (radius <= 0) return [
+        0,
+        0,
+        0,
+        0
+    ];
+    const up = has(r1 - 1, c);
+    const down = has(r1 + 1, c);
+    const left = has(r1, c - 1);
+    const right = has(r1, c + 1);
+    return [
+        !up && !left ? radius : 0,
+        !up && !right ? radius : 0,
+        !down && !right ? radius : 0,
+        !down && !left ? radius : 0
+    ];
 }
 const STRUCTURAL = [
     "seed",
@@ -1527,7 +1774,7 @@ class Shapes {
     collect(width, height) {
         if (width !== this.#vw || height !== this.#vh) this.resize(width, height);
         const out = this.#builder.reset(width, height);
-        drawGame(out, this.#game, this.config.palette);
+        drawGame(out, this.#game, this.config);
         return out;
     }
     resize(width, height) {
@@ -1553,17 +1800,23 @@ class Shapes {
     pointerUp() {
         this.#game.pointerUp();
     }
-    rotate() {
-        this.#game.rotateSelected();
+    rotate(id) {
+        this.#game.rotateSelected(id);
     }
-    rotateCCW() {
-        this.#game.rotateSelectedCCW();
+    rotateCCW(id) {
+        this.#game.rotateSelectedCCW(id);
     }
-    flip() {
-        this.#game.flipSelected();
+    flip(id) {
+        this.#game.flipSelected(id);
     }
     undo() {
         this.#game.undo();
+    }
+    removePlaced(id) {
+        return this.#game.removePlaced(id);
+    }
+    pieceAt(x, y) {
+        return this.#game.pieceAt(x, y);
     }
     hint() {
         this.#game.hint();
@@ -1591,9 +1844,23 @@ function createShapes(config = {}) {
 function drawCommand(ctx, cmd) {
     switch(cmd.kind){
         case "rect":
-            ctx.fillStyle = toCss(cmd.color);
-            ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
-            return;
+            {
+                ctx.fillStyle = toCss(cmd.color);
+                const r1 = cmd.radius;
+                const radii = typeof r1 === "number" ? r1 > 0 ? [
+                    r1,
+                    r1,
+                    r1,
+                    r1
+                ] : null : r1 && (r1[0] > 0 || r1[1] > 0 || r1[2] > 0 || r1[3] > 0) ? r1 : null;
+                if (radii && cmd.w > 0 && cmd.h > 0) {
+                    roundRectPath(ctx, cmd.x, cmd.y, cmd.w, cmd.h, radii);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
+                }
+                return;
+            }
         case "polygon":
             {
                 const p = cmd.points;
@@ -1652,6 +1919,21 @@ function drawCommand(ctx, cmd) {
 }
 function clamp01(n) {
     return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+function roundRectPath(ctx, x, y, w, h, radii) {
+    const max = Math.min(w, h) / 2;
+    const clamp = (v)=>Math.min(Math.max(0, v), max);
+    const tl = clamp(radii[0]);
+    const tr = clamp(radii[1]);
+    const br = clamp(radii[2]);
+    const bl = clamp(radii[3]);
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.arcTo(x + w, y, x + w, y + h, tr);
+    ctx.arcTo(x + w, y + h, x, y + h, br);
+    ctx.arcTo(x, y + h, x, y, bl);
+    ctx.arcTo(x, y, x + w, y, tl);
+    ctx.closePath();
 }
 class CanvasRenderer {
     #ctx;
@@ -1855,6 +2137,21 @@ function mountShapes(opts = {}) {
     });
     const solved = buildSolvedScreen(container, ()=>advance());
     const unsubs = [];
+    const muteBtn = iconBtn(ICONS.volumeOn, "Mute");
+    muteBtn.classList.add("shp-mute");
+    const refreshMute = ()=>{
+        muteBtn.innerHTML = audio.muted ? ICONS.volumeOff : ICONS.volumeOn;
+        muteBtn.title = audio.muted ? "Unmute" : "Mute";
+        muteBtn.setAttribute("aria-label", muteBtn.title);
+    };
+    muteBtn.onclick = ()=>{
+        audio.setMuted(!audio.muted);
+        saveMuted(audio.muted);
+        refreshMute();
+        if (!audio.muted) audio.resume();
+    };
+    refreshMute();
+    container.append(muteBtn);
     let vw = 1;
     let vh = 1;
     const resize = ()=>{
@@ -1872,6 +2169,28 @@ function mountShapes(opts = {}) {
         scene.nextLevel();
         phase.set("playing");
     };
+    let lastPopupSig = "";
+    const applyPopupTheme = ()=>{
+        const c = scene.config;
+        const sig = `${c.palette}|${c.panelRadius}|${c.panelShadow}|${c.panelBlur}|` + `${c.panelOpacity}`;
+        if (sig === lastPopupSig) return;
+        lastPopupSig = sig;
+        const pal = getPalette(c.palette);
+        const css = (k, v)=>container.style.setProperty(k, v);
+        const accentLight = lighten(pal.select, 0.05);
+        css("--shp-card-bg", toCss(withAlpha(lighten(pal.tray, 0.05), 0.97)));
+        css("--shp-card-fg", toCss(pal.text));
+        css("--shp-card-border", toCss(withAlpha(lighten(pal.outline, 0.12), 0.55)));
+        css("--shp-card-radius", `${c.panelRadius}px`);
+        css("--shp-card-shadow", c.panelShadow > 0 ? `0 ${Math.round(22 * c.panelShadow)}px ${Math.round(64 * c.panelShadow)}px ` + `rgba(0,0,0,${(0.55 * c.panelShadow).toFixed(3)})` : "none");
+        css("--shp-overlay-bg", toCss(withAlpha(darken(pal.background, 0.25), c.panelOpacity)));
+        css("--shp-overlay-blur", `${c.panelBlur}px`);
+        css("--shp-accent", toCss(accentLight));
+        css("--shp-accent-hover", toCss(lighten(pal.select, 0.18)));
+        css("--shp-accent-fg", toCss(darken(pal.select, 0.72)));
+        css("--shp-star", toCss(pal.select));
+    };
+    applyPopupTheme();
     const dispatch = (action)=>{
         switch(action){
             case "rotate":
@@ -1897,6 +2216,12 @@ function mountShapes(opts = {}) {
         render: ()=>{
             for (const action of intent.consumePressed())dispatch(action);
             intent.tick();
+            if (renderer instanceof CanvasRenderer) {
+                renderer.setPost({
+                    vignette: scene.config.vignette
+                });
+            }
+            applyPopupTheme();
             renderer.render(scene.collect(vw, vh));
             hud.update(scene);
             const placed = scene.game.placements;
@@ -1917,6 +2242,7 @@ function mountShapes(opts = {}) {
         solved.root.style.display = p === "solved" ? "flex" : "none";
         hud.root.style.display = p === "playing" ? "flex" : "none";
         hud.controls.style.display = p === "playing" ? "flex" : "none";
+        muteBtn.style.display = p === "playing" ? "inline-flex" : "none";
         if (p === "title") engine.stop();
         else engine.start();
     }));
@@ -1932,16 +2258,130 @@ function mountShapes(opts = {}) {
             e.clientY - r1.top
         ];
     };
+    const LONG_PRESS_MS = 400;
+    let downX = 0;
+    let downY = 0;
+    let dragged = false;
+    let lastTapId = null;
+    let lastTapAt = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+    let lastPointerType = "mouse";
+    let activeBeforePress = null;
+    let longPressTimer = null;
+    let longPressFired = false;
+    const activePointers = new Set();
+    let multiTouch = false;
+    const cancelLongPress = ()=>{
+        if (longPressTimer != null) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    };
+    const secondaryAction = (x, y)=>{
+        if (phase.get() !== "playing") return;
+        const id = scene.pieceAt(x, y);
+        if (id == null) return;
+        if (scene.game.pieces[id].state === "placed") scene.removePlaced(id);
+        else scene.flip(id);
+    };
+    const handleTap = (x, y, t)=>{
+        if (phase.get() !== "playing") return;
+        const id = scene.pieceAt(x, y);
+        if (id == null) {
+            lastTapId = null;
+            return;
+        }
+        if (scene.game.pieces[id].state === "placed") {
+            const isDouble = id === lastTapId && t - lastTapAt <= 280 && Math.hypot(x - lastTapX, y - lastTapY) <= 40;
+            lastTapId = id;
+            lastTapAt = t;
+            lastTapX = x;
+            lastTapY = y;
+            if (isDouble) {
+                lastTapId = null;
+                scene.removePlaced(id);
+            }
+            return;
+        }
+        lastTapId = id;
+        lastTapAt = t;
+        lastTapX = x;
+        lastTapY = y;
+        if (id === activeBeforePress) scene.rotate(id);
+    };
     on(globalThis, "resize", ()=>resize());
+    on(canvas, "contextmenu", (e)=>{
+        e.preventDefault();
+        if (lastPointerType === "touch") return;
+        const me = e;
+        const r1 = canvas.getBoundingClientRect();
+        secondaryAction(me.clientX - r1.left, me.clientY - r1.top);
+    });
     on(canvas, "pointerdown", (e)=>{
         const pe = e;
+        lastPointerType = pe.pointerType || lastPointerType;
+        if (pe.button > 0) return;
         audio.resume();
+        activePointers.add(pe.pointerId);
+        if (activePointers.size >= 2) {
+            multiTouch = true;
+            cancelLongPress();
+            scene.pointerUp();
+            dragged = false;
+            lastTapId = null;
+            if (!longPressFired) secondaryAction(downX, downY);
+            return;
+        }
         canvas.setPointerCapture?.(pe.pointerId);
-        scene.pointerDown(...localXY(pe));
+        [downX, downY] = localXY(pe);
+        dragged = false;
+        longPressFired = false;
+        activeBeforePress = scene.game.draggingId ?? scene.game.selectedId;
+        scene.pointerDown(downX, downY);
+        cancelLongPress();
+        longPressTimer = setTimeout(()=>{
+            longPressTimer = null;
+            if (multiTouch || dragged) return;
+            longPressFired = true;
+            secondaryAction(downX, downY);
+        }, LONG_PRESS_MS);
     });
-    on(canvas, "pointermove", (e)=>scene.pointerMove(...localXY(e)));
-    on(canvas, "pointerup", ()=>scene.pointerUp());
-    on(canvas, "pointercancel", ()=>scene.pointerUp());
+    on(canvas, "pointermove", (e)=>{
+        const pe = e;
+        lastPointerType = pe.pointerType || lastPointerType;
+        if (multiTouch) return;
+        const [x, y] = localXY(pe);
+        scene.pointerMove(x, y);
+        if (scene.game.draggingId != null || (x - downX) ** 2 + (y - downY) ** 2 > 8 * 8) {
+            dragged = true;
+            cancelLongPress();
+        }
+    });
+    on(canvas, "pointerup", (e)=>{
+        const pe = e;
+        activePointers.delete(pe.pointerId);
+        cancelLongPress();
+        if (multiTouch) {
+            if (activePointers.size === 0) multiTouch = false;
+            return;
+        }
+        scene.pointerUp();
+        if (longPressFired) {
+            longPressFired = false;
+            return;
+        }
+        if (dragged) lastTapId = null;
+        else handleTap(downX, downY, pe.timeStamp);
+    });
+    on(canvas, "pointercancel", (e)=>{
+        activePointers.delete(e.pointerId);
+        cancelLongPress();
+        scene.pointerUp();
+        dragged = false;
+        longPressFired = false;
+        if (activePointers.size === 0) multiTouch = false;
+    });
     on(globalThis, "keydown", (e)=>{
         const ke = e;
         if (ke.code in KEYMAP) {
@@ -1955,26 +2395,7 @@ function mountShapes(opts = {}) {
     });
     on(globalThis, "keyup", (e)=>intent.keyUp(e.code));
     on(globalThis, "blur", ()=>intent.reset());
-    hud.bind({
-        rotate: ()=>scene.rotate(),
-        flip: ()=>scene.flip(),
-        undo: ()=>scene.undo(),
-        hint: ()=>scene.hint()
-    });
-    const muteBtn = iconBtn(ICONS.volumeOn, "Mute");
-    const refreshMute = ()=>{
-        muteBtn.innerHTML = audio.muted ? ICONS.volumeOff : ICONS.volumeOn;
-        muteBtn.title = audio.muted ? "Unmute" : "Mute";
-        muteBtn.setAttribute("aria-label", muteBtn.title);
-    };
-    muteBtn.onclick = ()=>{
-        audio.setMuted(!audio.muted);
-        saveMuted(audio.muted);
-        refreshMute();
-        if (!audio.muted) audio.resume();
-    };
-    refreshMute();
-    hud.controls.append(muteBtn);
+    hud.bind(()=>scene.hint());
     resize();
     if ((opts.title ?? true) === false) engine.start();
     return {
@@ -1996,12 +2417,14 @@ function mountShapes(opts = {}) {
         stop: ()=>engine.stop(),
         destroy () {
             engine.stop();
+            cancelLongPress();
             for (const c of cleanups)c();
             for (const u of unsubs)u();
             renderer.dispose?.();
             audio.destroy();
             hud.root.remove();
             hud.controls.remove();
+            muteBtn.remove();
             start.root.remove();
             solved.root.remove();
             if (!opts.canvas) canvas.remove();
@@ -2016,11 +2439,8 @@ function buildHud(container) {
     root.append(level, moves, time);
     container.append(root);
     const controls = el("div", "shp-controls");
-    const rotate = iconBtn(ICONS.rotateCW, "Rotate (R)");
-    const flip = iconBtn(ICONS.flip, "Flip (F)");
-    const undo = iconBtn(ICONS.undo, "Undo (Z)");
     const hint = iconBtn(ICONS.hint, "Hint (H)");
-    controls.append(rotate, flip, undo, hint);
+    controls.append(hint);
     container.append(controls);
     return {
         root,
@@ -2030,11 +2450,8 @@ function buildHud(container) {
             moves.textContent = `${scene.moves} / par ${scene.par}`;
             time.textContent = formatTime(scene.elapsedMs);
         },
-        bind (h) {
-            rotate.onclick = h.rotate;
-            flip.onclick = h.flip;
-            undo.onclick = h.undo;
-            hint.onclick = h.hint;
+        bind (onHint) {
+            hint.onclick = onHint;
         }
     };
 }
@@ -2044,7 +2461,7 @@ function buildStartScreen(container, onPlay) {
     const h = el("h1", "shp-title");
     h.textContent = "Shapes";
     const p = el("p", "shp-sub");
-    p.textContent = "Reassemble the figure. Drag pieces in, rotate & flip to fit — fewest moves wins.";
+    p.textContent = "Drag pieces onto the figure. Tap to select, tap again to rotate; hold, right-click or " + "two-finger tap to flip. Double-tap a placed piece to take it back. Fewest moves wins.";
     const play = btn("Play", "Play");
     play.classList.add("shp-primary");
     play.onclick = onPlay;
@@ -2131,16 +2548,19 @@ const CSS = `
 .shp-btn:active{transform:translateY(1px);}
 .shp-btn svg{display:block;}
 .shp-icon{padding:0;}
+.shp-mute{position:fixed;top:16px;right:16px;z-index:8;}
 .shp-overlay{position:fixed;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;
- background:rgba(8,11,18,.6);backdrop-filter:blur(3px);}
-.shp-card{max-width:340px;text-align:center;padding:28px 26px;border-radius:18px;
- background:rgba(24,29,40,.96);border:1px solid rgba(130,150,200,.22);color:#eaf0fb;
- box-shadow:0 20px 60px rgba(0,0,0,.45);}
+ background:var(--shp-overlay-bg,rgba(8,11,18,.6));
+ backdrop-filter:blur(var(--shp-overlay-blur,3px));-webkit-backdrop-filter:blur(var(--shp-overlay-blur,3px));}
+.shp-card{max-width:340px;text-align:center;padding:28px 26px;border-radius:var(--shp-card-radius,18px);
+ background:var(--shp-card-bg,rgba(24,29,40,.96));border:1px solid var(--shp-card-border,rgba(130,150,200,.22));
+ color:var(--shp-card-fg,#eaf0fb);box-shadow:var(--shp-card-shadow,0 20px 60px rgba(0,0,0,.45));}
 .shp-title{margin:0 0 10px;font:600 28px/1.1 system-ui,sans-serif;letter-spacing:.5px;}
 .shp-sub{margin:0 0 18px;font:14px/1.5 system-ui,sans-serif;opacity:.82;}
-.shp-stars{display:flex;justify-content:center;gap:6px;color:#ffd873;margin-bottom:10px;}
-.shp-primary{min-width:140px;background:rgba(90,130,210,.92);border-color:rgba(150,180,240,.5);}
-.shp-primary:hover{background:rgba(108,150,230,1);}
+.shp-stars{display:flex;justify-content:center;gap:6px;color:var(--shp-star,#ffd873);margin-bottom:10px;}
+.shp-primary{min-width:140px;color:var(--shp-accent-fg,#fff);
+ background:var(--shp-accent,rgba(90,130,210,.92));border-color:transparent;}
+.shp-primary:hover{background:var(--shp-accent-hover,rgba(108,150,230,1));}
 `;
 const navy = {
     name: "navy",

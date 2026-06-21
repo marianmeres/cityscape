@@ -1226,14 +1226,15 @@ class DisplayListBuilder {
         this.commands.push(cmd);
         return this;
     }
-    rect(x, y, w, h, color) {
+    rect(x, y, w, h, color, radius) {
         this.commands.push({
             kind: "rect",
             x,
             y,
             w,
             h,
-            color
+            color,
+            radius
         });
         return this;
     }
@@ -3385,9 +3386,23 @@ function createNaturescape(config = {}) {
 function drawCommand(ctx, cmd) {
     switch(cmd.kind){
         case "rect":
-            ctx.fillStyle = toCss(cmd.color);
-            ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
-            return;
+            {
+                ctx.fillStyle = toCss(cmd.color);
+                const r1 = cmd.radius;
+                const radii = typeof r1 === "number" ? r1 > 0 ? [
+                    r1,
+                    r1,
+                    r1,
+                    r1
+                ] : null : r1 && (r1[0] > 0 || r1[1] > 0 || r1[2] > 0 || r1[3] > 0) ? r1 : null;
+                if (radii && cmd.w > 0 && cmd.h > 0) {
+                    roundRectPath(ctx, cmd.x, cmd.y, cmd.w, cmd.h, radii);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
+                }
+                return;
+            }
         case "polygon":
             {
                 const p = cmd.points;
@@ -3446,6 +3461,21 @@ function drawCommand(ctx, cmd) {
 }
 function clamp01(n) {
     return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+function roundRectPath(ctx, x, y, w, h, radii) {
+    const max = Math.min(w, h) / 2;
+    const clamp = (v)=>Math.min(Math.max(0, v), max);
+    const tl = clamp(radii[0]);
+    const tr = clamp(radii[1]);
+    const br = clamp(radii[2]);
+    const bl = clamp(radii[3]);
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.arcTo(x + w, y, x + w, y + h, tr);
+    ctx.arcTo(x + w, y + h, x, y + h, br);
+    ctx.arcTo(x, y + h, x, y, bl);
+    ctx.arcTo(x, y, x + w, y, tl);
+    ctx.closePath();
 }
 class CanvasRenderer {
     #ctx;

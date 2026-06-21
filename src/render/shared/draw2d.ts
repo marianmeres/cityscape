@@ -16,10 +16,22 @@ import type { DrawCommand } from "../../engine/render/draw-command.ts";
 /** Rasterise a single {@link DrawCommand} into `ctx` (screen-space coords; caller sets transform). */
 export function drawCommand(ctx: CanvasRenderingContext2D, cmd: DrawCommand): void {
 	switch (cmd.kind) {
-		case "rect":
+		case "rect": {
 			ctx.fillStyle = toCss(cmd.color);
-			ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
+			const r = cmd.radius;
+			const radii = typeof r === "number"
+				? (r > 0 ? [r, r, r, r] as const : null)
+				: (r && (r[0] > 0 || r[1] > 0 || r[2] > 0 || r[3] > 0))
+				? r
+				: null;
+			if (radii && cmd.w > 0 && cmd.h > 0) {
+				roundRectPath(ctx, cmd.x, cmd.y, cmd.w, cmd.h, radii);
+				ctx.fill();
+			} else {
+				ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
+			}
 			return;
+		}
 		case "polygon": {
 			const p = cmd.points;
 			if (p.length < 6) return;
@@ -78,4 +90,34 @@ export function drawCommand(ctx: CanvasRenderingContext2D, cmd: DrawCommand): vo
 
 function clamp01(n: number): number {
 	return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+
+/**
+ * Trace a rounded-rectangle path with independent `[tl, tr, br, bl]` corner radii (each clamped to
+ * half the shorter side; 0 = a square corner). Written by hand rather than relying on the still-
+ * unevenly-supported `ctx.roundRect`, so the pixel-art buffer and the full-res canvas round corners
+ * identically everywhere. Per-corner control lets callers round only a shape's exterior silhouette.
+ */
+function roundRectPath(
+	ctx: CanvasRenderingContext2D,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	radii: readonly [number, number, number, number],
+): void {
+	const max = Math.min(w, h) / 2;
+	const clamp = (v: number): number => Math.min(Math.max(0, v), max);
+	const tl = clamp(radii[0]);
+	const tr = clamp(radii[1]);
+	const br = clamp(radii[2]);
+	const bl = clamp(radii[3]);
+	// arcTo rounds the corner at its first control point; a radius of 0 degenerates to a sharp turn.
+	ctx.beginPath();
+	ctx.moveTo(x + tl, y);
+	ctx.arcTo(x + w, y, x + w, y + h, tr);
+	ctx.arcTo(x + w, y + h, x, y + h, br);
+	ctx.arcTo(x, y + h, x, y, bl);
+	ctx.arcTo(x, y, x + w, y, tl);
+	ctx.closePath();
 }

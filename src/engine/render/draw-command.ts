@@ -28,6 +28,14 @@ export interface RectCommand {
 	w: number;
 	h: number;
 	color: Color;
+	/**
+	 * Optional corner radius in screen pixels (each corner clamped to half the shorter side by the
+	 * rasteriser). A single number rounds all four corners uniformly; a `[tl, tr, br, bl]` tuple
+	 * rounds each corner independently — used to round only a shape's exterior silhouette while
+	 * leaving the corners shared with a neighbour square. Omitted/0 = sharp. Raster renderers round
+	 * the corners; text-only renderers (ASCII) ignore it — they have no sub-cell geometry to round.
+	 */
+	radius?: number | [number, number, number, number];
 }
 
 /** A filled polygon; `points` is a flat `[x0,y0,x1,y1,...]` array (screen-space). */
@@ -146,8 +154,15 @@ export class DisplayListBuilder implements DisplayList {
 		return this;
 	}
 
-	rect(x: number, y: number, w: number, h: number, color: Color): this {
-		this.commands.push({ kind: "rect", x, y, w, h, color });
+	rect(
+		x: number,
+		y: number,
+		w: number,
+		h: number,
+		color: Color,
+		radius?: number | [number, number, number, number],
+	): this {
+		this.commands.push({ kind: "rect", x, y, w, h, color, radius });
 		return this;
 	}
 

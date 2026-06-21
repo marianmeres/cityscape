@@ -4,6 +4,7 @@ import { buildLevel, type Level } from "../src/shapes/level.ts";
 import { GameState } from "../src/shapes/game.ts";
 import { makePieceShape, orientedCells, solvePath } from "../src/shapes/piece.ts";
 import { cellToScreen } from "../src/shapes/layout.ts";
+import { flip } from "../src/shapes/grid.ts";
 
 const VIEW = { w: 800, h: 600 };
 
@@ -128,7 +129,23 @@ Deno.test("rotate and flip each count one move", () => {
 	assertEquals(game.moves, 2);
 });
 
-Deno.test("placed pieces cannot be picked up (only undo removes them)", () => {
+Deno.test("rotateSelected/flipSelected can target an explicit piece (deferred tap gestures)", () => {
+	const game = new GameState(DEFAULT_CONFIG, buildLevel(DEFAULT_CONFIG, 4), VIEW);
+	game.selectedId = 1; // selection points elsewhere…
+	const o0 = game.pieces[0].orientation;
+	const o1 = game.pieces[1].orientation;
+	game.flipSelected(0); // …but an explicit id wins (a tap acts on the piece it hit)
+	assertEquals(game.pieces[0].orientation, flip(o0), "piece 0 is flipped exactly once");
+	assertEquals(
+		game.pieces[1].orientation,
+		o1,
+		"the previously-selected piece is untouched",
+	);
+	assertEquals(game.selectedId, 0, "acting on a piece selects it");
+	assertEquals(game.moves, 1, "one op, one move");
+});
+
+Deno.test("placed pieces cannot be picked up (drag skips them; gestures remove them)", () => {
 	const game = new GameState(DEFAULT_CONFIG, buildLevel(DEFAULT_CONFIG, 2), VIEW);
 	solveOptimally(game);
 	const home = cellToScreen(
@@ -137,6 +154,47 @@ Deno.test("placed pieces cannot be picked up (only undo removes them)", () => {
 		game.pieces[0].shape.anchorC,
 	);
 	assertEquals(game.pickAt(home.x + 1, home.y + 1), null);
+});
+
+Deno.test("pieceAt finds placed pieces (for tap gestures) where pickAt does not", () => {
+	const game = new GameState(DEFAULT_CONFIG, congruentLevel(), { w: 600, h: 600 });
+	dropOn(game, 0, 0, 0); // place the top domino into the top row
+	assertEquals(game.pieces[0].state, "placed");
+	const home = cellToScreen(game.layout, 0, 0);
+	const x = home.x + 1;
+	const y = home.y + 1;
+	assertEquals(
+		game.pickAt(x, y),
+		null,
+		"pickAt skips placed pieces (drag can't grab them)",
+	);
+	assertEquals(
+		game.pieceAt(x, y),
+		0,
+		"pieceAt includes placed pieces (a tap can target them)",
+	);
+});
+
+Deno.test("removePlaced returns one specific placed piece (not just the last) to the tray", () => {
+	const game = new GameState(DEFAULT_CONFIG, congruentLevel(), { w: 600, h: 600 });
+	dropOn(game, 0, 0, 0); // piece 0 → top row (placed first)
+	dropOn(game, 1, 1, 0); // piece 1 → bottom row (placed last)
+	assert(game.solved);
+	const movesAtSolve = game.moves;
+
+	// Target the FIRST-placed piece — undo() (last-in-first-out) could not reach it.
+	assert(game.removePlaced(0));
+	assert(!game.solved, "removing a piece un-solves the level");
+	assertEquals(game.pieces[0].state, "tray");
+	assertEquals(game.pieces[1].state, "placed", "the other piece stays placed");
+	assertEquals(game.moves, movesAtSolve + 1, "a removal counts as one move");
+
+	assertEquals(game.removePlaced(0), false, "removing a non-placed piece is a no-op");
+
+	// Its cells were freed, so the slot accepts a piece again.
+	dropOn(game, 0, 0, 0);
+	assertEquals(game.pieces[0].state, "placed");
+	assert(game.solved);
 });
 
 /** A 2×2 figure cut into two horizontal dominoes (top + bottom row) — congruent and swappable. */

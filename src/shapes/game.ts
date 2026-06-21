@@ -183,6 +183,18 @@ export class GameState {
 	}
 
 	/**
+	 * Topmost piece under a screen point, **including placed pieces** — the hit-test the runtime's
+	 * tap/double-tap gestures use (a tap on a placed piece must be detectable so a double-tap can
+	 * pull it back off the board). {@link pickAt}, used for dragging, deliberately skips placed.
+	 */
+	pieceAt(x: number, y: number): number | null {
+		for (let i = this.pieces.length - 1; i >= 0; i--) {
+			if (this.#hit(this.pieces[i], x, y)) return this.pieces[i].shape.id;
+		}
+		return null;
+	}
+
+	/**
 	 * Press on the piece at `(x, y)`, if any: it becomes selected/highlighted but stays put at tray
 	 * scale. It only lifts (and grows to board scale) once the pointer drags past {@link DRAG_SLOP_PX}
 	 * — see {@link pointerMove} — so a tap-to-highlight no longer flickers big-then-small. Returns
@@ -259,19 +271,19 @@ export class GameState {
 		p.ty = rest.y;
 	}
 
-	/** Rotate the selected (or dragged) piece 90° CW. Counts as one move. */
-	rotateSelected(): void {
-		this.#reorient((o) => rotateCW(o));
+	/** Rotate a piece 90° CW (defaults to the selected/dragged one). Counts as one move. */
+	rotateSelected(id?: number): void {
+		this.#reorient((o) => rotateCW(o), id);
 	}
 
-	/** Rotate the selected (or dragged) piece 90° CCW. Counts as one move. */
-	rotateSelectedCCW(): void {
-		this.#reorient((o) => rotateCCW(o));
+	/** Rotate a piece 90° CCW (defaults to the selected/dragged one). Counts as one move. */
+	rotateSelectedCCW(id?: number): void {
+		this.#reorient((o) => rotateCCW(o), id);
 	}
 
-	/** Mirror the selected (or dragged) piece. Counts as one move. */
-	flipSelected(): void {
-		this.#reorient((o) => flipOrientation(o));
+	/** Mirror a piece (defaults to the selected/dragged one). Counts as one move. */
+	flipSelected(id?: number): void {
+		this.#reorient((o) => flipOrientation(o), id);
 	}
 
 	/** Cycle the selection to the next unplaced piece (keyboard helper). */
@@ -289,9 +301,18 @@ export class GameState {
 
 	/** Undo the most recent placement, returning that piece to the tray. Counts as one move. */
 	undo(): void {
-		const id = this.#placedOrder.pop();
-		if (id == null) return;
+		const id = this.#placedOrder[this.#placedOrder.length - 1];
+		if (id != null) this.removePlaced(id);
+	}
+
+	/**
+	 * Return one specific placed piece to the tray — the double-tap-on-board gesture. Unlike
+	 * {@link undo} (which always pops the last placement) this targets the piece you tapped. Counts
+	 * as one move. Returns whether anything was removed.
+	 */
+	removePlaced(id: number): boolean {
 		const p = this.pieces[id];
+		if (p.state !== "placed") return false;
 		if (p.placedCells) { for (const k of p.placedCells) this.#occupied.delete(k); }
 		p.placedCells = undefined;
 		p.placedR = undefined;
@@ -301,8 +322,11 @@ export class GameState {
 		const rest = this.#trayRest(p);
 		p.tx = rest.x;
 		p.ty = rest.y;
+		const i = this.#placedOrder.indexOf(id);
+		if (i >= 0) this.#placedOrder.splice(i, 1);
 		this.moves++;
 		this.phase = "playing";
+		return true;
 	}
 
 	/** Auto-solve one unplaced piece by dropping it into its (still-empty) home, charging the penalty. */
@@ -322,12 +346,15 @@ export class GameState {
 
 	// ── internals ──────────────────────────────────────────────────────
 
-	#reorient(fn: (o: Orientation) => Orientation): void {
-		const id = this.draggingId ?? this.selectedId;
+	#reorient(
+		fn: (o: Orientation) => Orientation,
+		id: number | null = this.draggingId ?? this.selectedId,
+	): void {
 		if (id == null) return;
 		const p = this.pieces[id];
-		if (p.state === "placed") return;
+		if (!p || p.state === "placed") return;
 		p.orientation = fn(p.orientation);
+		this.selectedId = id; // acting on a piece selects it (so it highlights as the active one)
 		this.moves++;
 		if (p.state === "tray") {
 			const rest = this.#trayRest(p);

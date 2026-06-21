@@ -53,14 +53,18 @@ export interface ShapesScene {
 	pointerMove(x: number, y: number): void;
 	/** End a drag (snap or spring back). */
 	pointerUp(): void;
-	/** Rotate the selected/dragged piece 90° CW. */
-	rotate(): void;
-	/** Rotate the selected/dragged piece 90° CCW. */
-	rotateCCW(): void;
-	/** Flip (mirror) the selected/dragged piece. */
-	flip(): void;
+	/** Rotate a piece 90° CW (defaults to the selected/dragged one). */
+	rotate(id?: number): void;
+	/** Rotate a piece 90° CCW (defaults to the selected/dragged one). */
+	rotateCCW(id?: number): void;
+	/** Flip (mirror) a piece (defaults to the selected/dragged one). */
+	flip(id?: number): void;
 	/** Undo the most recent placement. */
 	undo(): void;
+	/** Remove one specific placed piece from the board (the double-tap-on-board gesture). */
+	removePlaced(id: number): boolean;
+	/** Topmost piece (including placed) under a screen point, or `null` — for tap gestures. */
+	pieceAt(x: number, y: number): number | null;
 	/** Use a hint (auto-solve one piece for a move penalty). */
 	hint(): void;
 	/** Cycle selection to the next unplaced piece. */
@@ -136,7 +140,9 @@ class Shapes implements ShapesScene {
 	collect(width: number, height: number): DisplayList {
 		if (width !== this.#vw || height !== this.#vh) this.resize(width, height);
 		const out = this.#builder.reset(width, height);
-		drawGame(out, this.#game, this.config.palette);
+		// Pass the scene's live config (not `game.config`, which is only refreshed on a structural
+		// rebuild) so the `Look` knobs restyle the board immediately.
+		drawGame(out, this.#game, this.config);
 		return out;
 	}
 
@@ -162,17 +168,23 @@ class Shapes implements ShapesScene {
 	pointerUp(): void {
 		this.#game.pointerUp();
 	}
-	rotate(): void {
-		this.#game.rotateSelected();
+	rotate(id?: number): void {
+		this.#game.rotateSelected(id);
 	}
-	rotateCCW(): void {
-		this.#game.rotateSelectedCCW();
+	rotateCCW(id?: number): void {
+		this.#game.rotateSelectedCCW(id);
 	}
-	flip(): void {
-		this.#game.flipSelected();
+	flip(id?: number): void {
+		this.#game.flipSelected(id);
 	}
 	undo(): void {
 		this.#game.undo();
+	}
+	removePlaced(id: number): boolean {
+		return this.#game.removePlaced(id);
+	}
+	pieceAt(x: number, y: number): number | null {
+		return this.#game.pieceAt(x, y);
 	}
 	hint(): void {
 		this.#game.hint();
