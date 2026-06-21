@@ -1,6 +1,6 @@
 {
   "name": "@marianmeres/cityscape",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "exports": {
     ".": "./src/mod.ts",
     "./engine": "./src/engine/mod.ts",
