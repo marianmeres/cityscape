@@ -64,10 +64,10 @@
 
 			.cards {
 				display: grid;
-				grid-template-columns: repeat(2, minmax(0, 1fr));
+				grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 				gap: 22px;
 				width: 100%;
-				max-width: 860px;
+				max-width: 1100px;
 			}
 			.card {
 				position: relative;
@@ -145,6 +145,17 @@
 				background: rgba(255, 255, 255, 0.4);
 				border-color: rgba(255, 255, 255, 0.6);
 			}
+			/* Shapes card — the interactive puzzle. */
+			.card-shapes {
+				background:
+					radial-gradient(
+						110% 90% at 78% 16%,
+						rgba(120, 200, 255, 0.32),
+						transparent 58%
+					),
+					linear-gradient(180deg, #1b2233 0%, #232c44 52%, #11151f 100%);
+				color: #dfe9ff;
+			}
 
 			footer {
 				font-size: 12px;
@@ -169,11 +180,10 @@
 		<header>
 			<h1>@marianmeres/cityscape</h1>
 			<p class="tagline">
-				Two procedurally-generated, infinitely-scrolling parallax worlds — built
-				on the
-				<em>same</em> headless engine and the same swappable
-				<code>Canvas · ASCII · Pixel</code> renderers. Pick one (you can hop
-				between them).
+				Three worlds on one headless engine — two procedurally-generated
+				parallax animations and one interactive puzzle — all sharing the same
+				swappable
+				<code>Canvas · ASCII · Pixel</code> renderer seam. Take your pick.
 			</p>
 		</header>
 
@@ -195,6 +205,15 @@
 					peaks, a lake and cabins, with seasons, weather and wildlife.
 				</p>
 				<span class="go">Wander the valley →</span>
+			</a>
+			<a class="card card-shapes" href="./shapes/">
+				<div class="emoji">🧩</div>
+				<h2>Shapes</h2>
+				<p>
+					The interactive one: a polyomino puzzle. Rotate, flip and drag the
+					scattered pieces back into the figure — in the fewest moves.
+				</p>
+				<span class="go">Solve the figure →</span>
 			</a>
 		</main>
 

@@ -6,6 +6,7 @@
     "./engine": "./src/engine/mod.ts",
     "./cityscape": "./src/cityscape/mod.ts",
     "./naturescape": "./src/naturescape/mod.ts",
+    "./shapes": "./src/shapes/mod.ts",
     "./render/canvas": "./src/render/canvas/mod.ts",
     "./render/ascii": "./src/render/ascii/mod.ts",
     "./render/pixelart": "./src/render/pixelart/mod.ts",
@@ -32,7 +33,8 @@
   "lint": {
     "exclude": [
       "example/city/dist",
-      "example/nature/dist"
+      "example/nature/dist",
+      "example/shapes/dist"
     ]
   },
   "tasks": {
@@ -43,9 +45,11 @@
     "city:watch": "deno run -A jsr:@marianmeres/deno-build --root example/city --entry main.ts --outdir example/city/dist --watch --watch-dir src",
     "nature:build": "deno run -A jsr:@marianmeres/deno-build --root example/nature --entry main.ts --outdir example/nature/dist",
     "nature:watch": "deno run -A jsr:@marianmeres/deno-build --root example/nature --entry main.ts --outdir example/nature/dist --watch --watch-dir src",
+    "shapes:build": "deno run -A jsr:@marianmeres/deno-build --root example/shapes --entry main.ts --outdir example/shapes/dist",
+    "shapes:watch": "deno run -A jsr:@marianmeres/deno-build --root example/shapes --entry main.ts --outdir example/shapes/dist --watch --watch-dir src",
     "city:theme": "deno run -A example/city/theme/_generate.ts",
     "nature:theme": "deno run -A example/nature/theme/_generate.ts",
-    "build:all": "deno task city:theme && deno task city:build && deno task nature:theme && deno task nature:build",
+    "build:all": "deno task city:theme && deno task city:build && deno task nature:theme && deno task nature:build && deno task shapes:build",
     "npm:build": "deno run -A scripts/build-npm.ts",
     "npm:publish": "deno run -A scripts/build-npm.ts && cd ./.npm-dist && npm publish --access=public",
     "release": "deno run -A jsr:@marianmeres/deno-release",

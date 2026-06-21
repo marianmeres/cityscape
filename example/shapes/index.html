@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+		/>
+		<title>@marianmeres/cityscape — shapes puzzle</title>
+		<meta
+			name="description"
+			content="An interactive polyomino dissection-and-reassembly puzzle, built on the same headless engine and renderer seam as the cityscape and naturescape."
+		/>
+		<link
+			rel="icon"
+			href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧩</text></svg>"
+		/>
+		<style>
+			html, body {
+				height: 100%;
+			}
+			body {
+				margin: 0;
+				position: relative;
+				min-height: 100vh;
+				overflow: hidden;
+				background: #12161e;
+				font-family: ui-sans-serif, system-ui, sans-serif;
+			}
+
+			/* Top-left menu — the only page chrome (the game builds its own HUD). */
+			.shp-menu-btn {
+				position: fixed;
+				left: 16px;
+				top: 16px;
+				z-index: 11;
+				width: 40px;
+				height: 40px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 18px;
+				border-radius: 10px;
+				border: 1px solid rgba(130, 150, 200, 0.28);
+				background: rgba(40, 48, 66, 0.82);
+				color: #eef2fb;
+				cursor: pointer;
+				backdrop-filter: blur(10px);
+			}
+			.shp-menu-btn:hover {
+				background: rgba(56, 66, 90, 0.92);
+			}
+			.shp-menu {
+				position: fixed;
+				left: 16px;
+				top: 64px;
+				z-index: 11;
+				display: none;
+				flex-direction: column;
+				gap: 4px;
+				width: 190px;
+				padding: 8px;
+				border-radius: 12px;
+				border: 1px solid rgba(130, 150, 200, 0.28);
+				background: rgba(28, 33, 44, 0.96);
+				color: #eaf0fb;
+				backdrop-filter: blur(10px);
+				box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+			}
+			.shp-menu-item {
+				font: 13px/1 ui-sans-serif, system-ui, sans-serif;
+				text-align: left;
+				padding: 9px 10px;
+				border-radius: 8px;
+				border: none;
+				background: transparent;
+				color: inherit;
+				cursor: pointer;
+				text-decoration: none;
+				display: flex;
+				align-items: center;
+				gap: 9px;
+			}
+			.shp-menu-item:hover {
+				background: rgba(130, 150, 200, 0.14);
+			}
+			.shp-menu-btn svg,
+			.shp-menu-item svg {
+				display: block;
+				flex: 0 0 auto;
+				opacity: 0.92;
+			}
+		</style>
+	</head>
+	<body>
+		<!--
+			The canvas, HUD and start/solved screens are created by mountShapes(); the small menu is
+			built by the example script. Build the bundle first:
+			  deno task shapes:build      (or shapes:watch)
+		-->
+		<script type="module" src="./dist/bundle.js"></script>
+	</body>
+</html>

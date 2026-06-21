@@ -5,7 +5,7 @@
  */
 import { assert } from "@std/assert";
 
-const PURE_ROOTS = ["src/engine", "src/cityscape", "src/naturescape"];
+const PURE_ROOTS = ["src/engine", "src/cityscape", "src/naturescape", "src/shapes"];
 
 /**
  * Browser/DOM tokens that must never appear in pure code. Note `window` is matched only as the
@@ -34,7 +34,7 @@ const FORBIDDEN_TOKENS: RegExp[] = [
  * runtime/ui/audio layers are forbidden.)
  */
 const FORBIDDEN_IMPORTS: RegExp[] = [
-	/from\s+["'][^"']*\/render\/(canvas|ascii)\//,
+	/from\s+["'][^"']*\/render\/(canvas|ascii|pixelart)\//,
 	/from\s+["'][^"']*\/(runtime|ui|audio)\//,
 	/from\s+["']@marianmeres\/vanilla["']/,
 	/from\s+["']@marianmeres\/design-tokens["']/,
@@ -54,7 +54,7 @@ function* walk(dir: string): Generator<string> {
 	}
 }
 
-Deno.test("engine/ and cityscape/ contain no DOM or browser usage", () => {
+Deno.test("the pure core layers (engine + domains) contain no DOM or browser usage", () => {
 	const offenders: string[] = [];
 	for (const root of PURE_ROOTS) {
 		for (const file of walk(root)) {

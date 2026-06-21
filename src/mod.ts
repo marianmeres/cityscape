@@ -77,3 +77,12 @@ export {
 	type NatureScene,
 } from "./naturescape/mod.ts";
 export { NatureAudio } from "./audio/nature-audio.ts";
+
+// Shapes — a third, interactive domain on the same engine + renderers: a polyomino reassembly
+// puzzle (the full headless surface is under `@marianmeres/cityscape/shapes`).
+export {
+	mountShapes,
+	type ShapesHandle,
+	type ShapesMountOptions,
+} from "./runtime/mount-shapes.ts";
+export { createShapes, type ShapesConfig, type ShapesScene } from "./shapes/mod.ts";
