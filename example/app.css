@@ -370,3 +370,40 @@ body {
 	flex: 0 0 auto;
 	opacity: 0.92;
 }
+
+/* ── Installed PWA (standalone / fullscreen) ───────────────────────────────────
+   When launched from the home screen the OS status bar overlays the content, but
+   `env(safe-area-inset-top)` reports 0 on non-notched iOS in `black-translucent`
+   mode — so the hamburger (top: 16px + safe-top) ends up *under* the system clock
+   and is untappable. Every floating control derives its offset from `--safe-top`,
+   so enforcing a minimum here lifts the menu buttons *and* their dropdowns clear of
+   the status bar in one move (notched devices keep their larger real inset). */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+	body {
+		--safe-top: max(env(safe-area-inset-top, 0px), 28px);
+	}
+}
+
+/* Portrait lock. The manifest's `orientation: portrait` handles installed PWAs on
+   platforms that honour it (Android); iOS ignores it, so as a backstop we curtain
+   the app with a rotate prompt when an *installed* PWA is held in landscape on a
+   touch device. Scoped to `pointer: coarse` so a desktop PWA window (always
+   "landscape", fine pointer) is never affected. */
+@media (display-mode: standalone) and (orientation: landscape) and (pointer: coarse),
+	(display-mode: fullscreen) and (orientation: landscape) and (pointer: coarse) {
+	body::after {
+		content: "↻\00a0\00a0Rotate your device to portrait";
+		position: fixed;
+		inset: 0;
+		z-index: 9999;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem;
+		text-align: center;
+		font: 600 clamp(15px, 4vw, 20px) / 1.5 ui-sans-serif, system-ui, sans-serif;
+		letter-spacing: 0.01em;
+		color: #e8eefc;
+		background: #04060d;
+	}
+}

@@ -116,7 +116,8 @@ The example is an **installable, hash-routed SPA** — one app, one manifest: a 
 plus the three worlds at `#/city`, `#/nature`, `#/shapes`. Switching worlds is a client-side swap
 (no reload). On a phone, **Add to Home Screen** launches it full-screen — the manifest declares
 `display: fullscreen` and the iOS standalone meta tags make it run chrome-free, edge-to-edge under
-the notch.
+the notch, locked to **portrait** (manifest `orientation`, plus a CSS rotate-prompt backstop on
+platforms that ignore it).
 
 In any world: **move** the pointer for parallax + vertical pan · **wheel** to scrub speed · **click**
 to flash/ripple · press **`a`** to toggle the ASCII view · **`p`** for the pixel-art view (**`[`** /
