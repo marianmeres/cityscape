@@ -640,10 +640,12 @@ function ensureStyles(): void {
 
 const CSS = `
 .shp-hud{position:fixed;top:0;left:0;right:0;z-index:8;display:flex;gap:16px;justify-content:center;
- padding:10px;font:13px/1.4 ui-monospace,Menlo,monospace;color:#dfe7f5;pointer-events:none;
- text-shadow:0 1px 2px rgba(0,0,0,.6);}
+ padding:calc(10px + env(safe-area-inset-top,0px)) calc(10px + env(safe-area-inset-right,0px)) 10px
+ calc(10px + env(safe-area-inset-left,0px));font:13px/1.4 ui-monospace,Menlo,monospace;
+ color:#dfe7f5;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.6);}
 .shp-stat{opacity:.92;}
-.shp-controls{position:fixed;bottom:16px;left:0;right:0;z-index:8;display:flex;gap:12px;justify-content:center;}
+.shp-controls{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:0;right:0;z-index:8;
+ display:flex;gap:12px;justify-content:center;}
 .shp-btn{min-width:48px;min-height:48px;padding:0 14px;border-radius:12px;cursor:pointer;
  display:inline-flex;align-items:center;justify-content:center;
  font:15px/1 system-ui,sans-serif;color:#eef2fb;background:rgba(40,48,66,.82);
@@ -652,7 +654,8 @@ const CSS = `
 .shp-btn:active{transform:translateY(1px);}
 .shp-btn svg{display:block;}
 .shp-icon{padding:0;}
-.shp-mute{position:fixed;top:16px;right:16px;z-index:8;}
+.shp-mute{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));
+ right:calc(16px + env(safe-area-inset-right,0px));z-index:8;}
 .shp-overlay{position:fixed;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;
  background:var(--shp-overlay-bg,rgba(8,11,18,.6));
  backdrop-filter:blur(var(--shp-overlay-blur,3px));-webkit-backdrop-filter:blur(var(--shp-overlay-blur,3px));}
@@ -665,4 +668,11 @@ const CSS = `
 .shp-primary{min-width:140px;color:var(--shp-accent-fg,#fff);
  background:var(--shp-accent,rgba(90,130,210,.92));border-color:transparent;}
 .shp-primary:hover{background:var(--shp-accent-hover,rgba(108,150,230,1));}
+/* Installed PWA: the OS status bar overlays the content but env(safe-area-inset-top) can report 0
+   (non-notched iOS, black-translucent), hiding the top-anchored HUD + mute button under the clock.
+   Enforce a minimum top clearance so they stay readable + reachable, mirroring the example chrome. */
+@media (display-mode:standalone),(display-mode:fullscreen){
+ .shp-mute{top:calc(16px + max(env(safe-area-inset-top,0px),28px));}
+ .shp-hud{padding-top:calc(10px + max(env(safe-area-inset-top,0px),28px));}
+}
 `;
