@@ -210,7 +210,8 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		max: 1,
 		step: 0.05,
 		default: 0.5,
-		help: "Soft top-light on near buildings so silhouettes read as volumes. 0 = flat.",
+		help:
+			"Soft top-light on near buildings so silhouettes read as volumes. 0 = flat.",
 	},
 	{
 		key: "neon",
@@ -232,7 +233,8 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		max: 1,
 		step: 0.05,
 		default: 0.3,
-		help: "Drift between dense city and open outskirts as you scroll. 0 = uniform city.",
+		help:
+			"Drift between dense city and open outskirts as you scroll. 0 = uniform city.",
 	},
 	{
 		key: "biomeScale",
@@ -243,7 +245,8 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		max: 12,
 		step: 0.5,
 		default: 4.5,
-		help: "How long each city/outskirts stretch lasts (world units). Higher = longer.",
+		help:
+			"How long each city/outskirts stretch lasts (world units). Higher = longer.",
 	},
 	// ── Mood ───────────────────────────────────────────────────────────
 	{

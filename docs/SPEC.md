@@ -222,7 +222,7 @@ vanilla's convention.
 2. **Cityscape domain** — config+schema, palette, mood, buildings, sky, generation, scene, events.
 3. **Renderers** — CanvasRenderer + AsciiRenderer.
 4. **Runtime/UI/Audio** — mount, control panel (vanilla+design-tokens), ambient audio.
-5. **Example** — one installable, hash-routed SPA: `example/index.html` (shell + manifest/iOS meta) + `example/main.ts` (router over `#app`) + `chooser.ts` + `worlds/{scape,shapes}.ts` + generated theme tokens + a service worker; bundle with deno-build. Full-screen on mobile via Add-to-Home-Screen.
+5. **Example** — one installable, hash-routed SPA: `example/index.html` (shell + manifest/iOS meta) + `example/main.ts` (router over `#app`) + `chooser.ts` + `worlds/scape.ts` + generated theme tokens + a service worker; bundle with deno-build. Full-screen on mobile via Add-to-Home-Screen.
 6. **Tests** — thorough DOM-free suite; `deno test` + `deno check` green.
 7. **Adversarial review** — DOM-purity (no DOM import reaches engine/cityscape), correctness, coverage; fix.
 

@@ -1,6 +1,6 @@
 /**
  * The chooser — the SPA's landing view (route `#/`). A small gallery of cards, one per world,
- * each an anchor to its hash route (`#/city`, `#/nature`, `#/shapes`) so the router handles the
+ * each an anchor to its hash route (`#/city`, `#/nature`) so the router handles the
  * navigation and the browser keeps real-link semantics (focus, middle-click, back).
  *
  * Ported from the old static `example/index.html`; styling lives in `app.css` (`.chooser`).
@@ -38,16 +38,6 @@ const CARDS: CardSpec[] = [
 			"and cabins, with seasons, weather and wildlife.",
 		cta: "Wander the valley →",
 	},
-	{
-		route: "#/shapes",
-		cls: "card-shapes",
-		emoji: "🧩",
-		title: "Shapes",
-		blurb:
-			"The interactive one: a polyomino puzzle. Rotate, flip and drag the scattered " +
-			"pieces back into the figure — in the fewest moves.",
-		cta: "Solve the figure →",
-	},
 ];
 
 /** Build the chooser into `host` (route `#/`). */
@@ -62,8 +52,8 @@ export function createChooser(host: HTMLElement): View {
 	const tagline = document.createElement("p");
 	tagline.className = "tagline";
 	tagline.append(
-		"Three worlds on one headless engine — two procedurally-generated parallax " +
-			"animations and one interactive puzzle — all sharing the same swappable ",
+		"Two procedurally-generated parallax worlds on one headless engine, both sharing " +
+			"the same swappable ",
 	);
 	const code = document.createElement("code");
 	code.textContent = "Canvas · ASCII · Pixel";

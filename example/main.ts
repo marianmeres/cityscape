@@ -11,7 +11,6 @@
 
 import { createChooser } from "./chooser.ts";
 import { createCityExample, createNatureExample } from "./worlds/scape.ts";
-import { createShapesExample } from "./worlds/shapes.ts";
 import type { View, ViewFactory } from "./view.ts";
 
 interface Route {
@@ -24,7 +23,6 @@ const ROUTES: Record<string, Route> = {
 	"/": { factory: createChooser, themeColor: "#0a0f1e" },
 	"/city": { factory: createCityExample, themeColor: "#0a0f1e" },
 	"/nature": { factory: createNatureExample, themeColor: "#bfe0f5" },
-	"/shapes": { factory: createShapesExample, themeColor: "#12161e" },
 };
 
 const mount = document.getElementById("app");

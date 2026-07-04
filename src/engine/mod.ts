@@ -38,4 +38,5 @@ export * from "./input/input.ts";
 export * from "./input/intent.ts";
 
 // config
+export * from "./config/schema.ts";
 export * from "./config/serialize.ts";

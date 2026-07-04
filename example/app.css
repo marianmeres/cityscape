@@ -5,11 +5,10 @@
 	                       (incl. under a phone's notch, via `viewport-fit=cover` + safe-area insets),
 	  2. the chooser    — the landing view (ported from the old static example/index.html), and
 	  3. world chrome   — the hamburger menu / toast / ASCII overlay shared by the city + nature
-	                       worlds (one token-driven class set, themed per `[data-world]`), plus the
-	                       small shapes menu.
+	                       worlds (one token-driven class set, themed per `[data-world]`).
 
-	Panel + shapes-HUD styling is injected by the library itself (createControlPanel / mountShapes),
-	so it isn't here. World panels read the `--app-color-*` tokens scoped per `[data-world]` in
+	Panel styling is injected by the library itself (createControlPanel), so it isn't here. World
+	panels read the `--app-color-*` tokens scoped per `[data-world]` in
 	theme/tokens.css, so the same `.scape-*` chrome goes dark for the city and light for the valley.
 */
 
@@ -49,8 +48,7 @@ body {
 	overflow: hidden;
 }
 /* Native form controls in the panel (sliders, checkboxes) follow each world's mode. */
-.stage[data-world="city"],
-.stage[data-world="shapes"] {
+.stage[data-world="city"] {
 	color-scheme: dark;
 }
 .stage[data-world="nature"] {
@@ -171,14 +169,6 @@ body {
 	background: rgba(255, 255, 255, 0.4);
 	border-color: rgba(255, 255, 255, 0.6);
 }
-/* Shapes card — the interactive puzzle. */
-.card-shapes {
-	background:
-		radial-gradient(110% 90% at 78% 16%, rgba(120, 200, 255, 0.32), transparent 58%),
-		linear-gradient(180deg, #1b2233 0%, #232c44 52%, #11151f 100%);
-	color: #dfe9ff;
-}
-
 .chooser footer {
 	font-size: 12px;
 	opacity: 0.55;
@@ -306,69 +296,6 @@ body {
 	.scape-menu-hint {
 		display: none;
 	}
-}
-
-/* ── Shapes menu (the puzzle builds its own HUD; this is just the corner menu) ── */
-.shp-menu-btn {
-	position: absolute;
-	left: calc(16px + var(--safe-left));
-	top: calc(16px + var(--safe-top));
-	z-index: 11;
-	width: 40px;
-	height: 40px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 18px;
-	border-radius: 10px;
-	border: 1px solid rgba(130, 150, 200, 0.28);
-	background: rgba(40, 48, 66, 0.82);
-	color: #eef2fb;
-	cursor: pointer;
-	backdrop-filter: blur(10px);
-}
-.shp-menu-btn:hover {
-	background: rgba(56, 66, 90, 0.92);
-}
-.shp-menu {
-	position: absolute;
-	left: calc(16px + var(--safe-left));
-	top: calc(64px + var(--safe-top));
-	z-index: 11;
-	display: none;
-	flex-direction: column;
-	gap: 4px;
-	width: 190px;
-	padding: 8px;
-	border-radius: 12px;
-	border: 1px solid rgba(130, 150, 200, 0.28);
-	background: rgba(28, 33, 44, 0.96);
-	color: #eaf0fb;
-	backdrop-filter: blur(10px);
-	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-}
-.shp-menu-item {
-	font: 13px/1 ui-sans-serif, system-ui, sans-serif;
-	text-align: left;
-	padding: 9px 10px;
-	border-radius: 8px;
-	border: none;
-	background: transparent;
-	color: inherit;
-	cursor: pointer;
-	text-decoration: none;
-	display: flex;
-	align-items: center;
-	gap: 9px;
-}
-.shp-menu-item:hover {
-	background: rgba(130, 150, 200, 0.14);
-}
-.shp-menu-btn svg,
-.shp-menu-item svg {
-	display: block;
-	flex: 0 0 auto;
-	opacity: 0.92;
 }
 
 /* ── Installed PWA (standalone / fullscreen) ───────────────────────────────────

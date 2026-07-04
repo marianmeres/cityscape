@@ -228,7 +228,8 @@ export const CONFIG_SCHEMA: ConfigField[] = [
 		max: 1,
 		step: 0.05,
 		default: 0.4,
-		help: "Drift between meadow, forest and alpine as you scroll. 0 = uniform landscape.",
+		help:
+			"Drift between meadow, forest and alpine as you scroll. 0 = uniform landscape.",
 	},
 	{
 		key: "biomeScale",

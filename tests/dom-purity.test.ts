@@ -5,7 +5,7 @@
  */
 import { assert } from "@std/assert";
 
-const PURE_ROOTS = ["src/engine", "src/cityscape", "src/naturescape", "src/shapes"];
+const PURE_ROOTS = ["src/engine", "src/cityscape", "src/naturescape"];
 
 /**
  * Browser/DOM tokens that must never appear in pure code. Note `window` is matched only as the

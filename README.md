@@ -113,7 +113,7 @@ deno task serve            # static-serve the repo, then open http://localhost:8
 ```
 
 The example is an **installable, hash-routed SPA** — one app, one manifest: a chooser landing page
-plus the three worlds at `#/city`, `#/nature`, `#/shapes`. Switching worlds is a client-side swap
+plus the two worlds at `#/city`, `#/nature`. Switching worlds is a client-side swap
 (no reload). On a phone, **Add to Home Screen** launches it full-screen — the manifest declares
 `display: fullscreen` and the iOS standalone meta tags make it run chrome-free, edge-to-edge under
 the notch, locked to **portrait** (manifest `orientation`, plus a CSS rotate-prompt backstop on
