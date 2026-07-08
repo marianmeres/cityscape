@@ -124,10 +124,13 @@ class Engine {
     #last = null;
     #cancel = null;
     #maxFrameDelta;
+    #minRenderMs;
+    #sinceRender = 0;
     constructor(opts){
         this.#opts = opts;
         this.stepper = new FixedStepper(opts.fixedStepMs, opts.maxStepsPerFrame ?? 5);
         this.#maxFrameDelta = opts.maxFrameDeltaMs ?? 250;
+        this.#minRenderMs = opts.maxFps && opts.maxFps > 0 ? 1000 / opts.maxFps * 0.8 : 0;
     }
     get running() {
         return this.#running;
@@ -136,6 +139,7 @@ class Engine {
         if (this.#running) return;
         this.#running = true;
         this.#last = null;
+        this.#sinceRender = 0;
         this.#schedule();
     }
     stop() {
@@ -155,18 +159,24 @@ class Engine {
     }
     #frame = (time)=>{
         if (!this.#running) return;
+        const first = this.#last == null;
         if (this.#last == null) this.#last = time;
         const raw = time - this.#last;
         this.#last = time;
         if (raw > this.#maxFrameDelta) {
             const { alpha } = this.stepper.advance(0, this.#opts.step);
+            this.#sinceRender = 0;
             this.#opts.render(alpha);
             this.#schedule();
             return;
         }
         const delta = clamp(raw, 0, this.#maxFrameDelta);
         const { alpha } = this.stepper.advance(delta, this.#opts.step);
-        this.#opts.render(alpha);
+        this.#sinceRender += delta;
+        if (first || this.#minRenderMs === 0 || this.#sinceRender >= this.#minRenderMs) {
+            this.#sinceRender = 0;
+            this.#opts.render(alpha);
+        }
         this.#schedule();
     };
 }
@@ -3360,14 +3370,14 @@ function drawCommand(ctx, cmd) {
             return;
         case "glow":
             {
-                const r1 = Math.max(0.5, cmd.r);
-                const g = ctx.createRadialGradient(cmd.x, cmd.y, 0, cmd.x, cmd.y, r1);
-                const c = cmd.color;
-                g.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${c.a * cmd.intensity})`);
-                g.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
+                const r1 = Math.max(0.5, Math.round(cmd.r * 2) / 2);
+                const g = glowGradient(ctx, r1, cmd.color, cmd.intensity);
                 ctx.globalCompositeOperation = "lighter";
+                ctx.save();
+                ctx.translate(cmd.x, cmd.y);
                 ctx.fillStyle = g;
-                ctx.fillRect(cmd.x - r1, cmd.y - r1, r1 * 2, r1 * 2);
+                ctx.fillRect(-r1, -r1, r1 * 2, r1 * 2);
+                ctx.restore();
                 ctx.globalCompositeOperation = "source-over";
                 return;
             }
@@ -3381,6 +3391,24 @@ function drawCommand(ctx, cmd) {
 }
 function clamp01(n) {
     return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+const glowCache = new WeakMap();
+function glowGradient(ctx, r1, c, intensity) {
+    let byCtx = glowCache.get(ctx);
+    if (!byCtx) glowCache.set(ctx, byCtx = new Map());
+    const a = c.a * intensity;
+    const key = `${r1}:${c.r},${c.g},${c.b},${a.toFixed(3)}`;
+    const hit = byCtx.get(key);
+    if (hit) return hit;
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r1);
+    g.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${a})`);
+    g.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
+    if (byCtx.size >= 64) {
+        const oldest = byCtx.keys().next().value;
+        if (oldest !== undefined) byCtx.delete(oldest);
+    }
+    byCtx.set(key, g);
+    return g;
 }
 function roundRectPath(ctx, x, y, w, h, radii) {
     const max = Math.min(w, h) / 2;
@@ -3404,7 +3432,8 @@ class CanvasRenderer {
     #width = 0;
     #height = 0;
     #vignette = 0;
-    #grainPattern = null;
+    #postCanvas = null;
+    #postSig = "";
     constructor(canvas){
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("CanvasRenderer: 2D context unavailable");
@@ -3438,24 +3467,40 @@ class CanvasRenderer {
         if (vig <= 0) return;
         const w = this.#canvas.width;
         const h = this.#canvas.height;
+        const sig = `${w}x${h}@${vig}`;
+        if (sig !== this.#postSig) {
+            this.#postCanvas = bakePost(w, h, vig);
+            this.#postSig = sig;
+        }
+        const post = this.#postCanvas;
+        if (!post) return;
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        const cx = w / 2;
-        const cy = h / 2;
-        const g = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.4, cx, cy, Math.hypot(w, h) * 0.6);
-        g.addColorStop(0, "rgba(0,0,0,0)");
-        g.addColorStop(1, `rgba(0,0,0,${(vig * 0.9).toFixed(3)})`);
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, w, h);
-        const grain = this.#grainPattern ?? (this.#grainPattern = buildGrain(ctx));
-        if (grain) {
-            ctx.globalAlpha = vig * 0.06;
-            ctx.fillStyle = grain;
-            ctx.fillRect(0, 0, w, h);
-            ctx.globalAlpha = 1;
-        }
+        ctx.drawImage(post, 0, 0);
         ctx.restore();
     }
+}
+function bakePost(w, h, vig) {
+    const off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext("2d");
+    if (!octx) return null;
+    const cx = w / 2;
+    const cy = h / 2;
+    const g = octx.createRadialGradient(cx, cy, Math.min(w, h) * 0.4, cx, cy, Math.hypot(w, h) * 0.6);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, `rgba(0,0,0,${(vig * 0.9).toFixed(3)})`);
+    octx.fillStyle = g;
+    octx.fillRect(0, 0, w, h);
+    const grain = buildGrain(octx);
+    if (grain) {
+        octx.globalAlpha = vig * 0.06;
+        octx.fillStyle = grain;
+        octx.fillRect(0, 0, w, h);
+        octx.globalAlpha = 1;
+    }
+    return off;
 }
 function buildGrain(ctx) {
     const size = 64;
@@ -3786,15 +3831,18 @@ function mountCityscape(opts = {}) {
         cleanups.push(()=>target.removeEventListener(type, fn, options));
     };
     on(globalThis, "resize", ()=>resize());
-    let wasRunning = false;
-    on(document, "visibilitychange", ()=>{
-        if (document.hidden) {
-            wasRunning = engine.running;
-            engine.stop();
-        } else if (wasRunning) {
-            engine.start();
-        }
-    });
+    const pauseWhenUnfocused = opts.pauseWhenUnfocused ?? false;
+    let intendRunning = false;
+    const syncRunning = ()=>{
+        const shouldRun = intendRunning && !document.hidden && (!pauseWhenUnfocused || document.hasFocus());
+        if (shouldRun) engine.start();
+        else engine.stop();
+    };
+    on(document, "visibilitychange", syncRunning);
+    if (pauseWhenUnfocused) {
+        on(globalThis, "focus", syncRunning);
+        on(globalThis, "blur", syncRunning);
+    }
     if (interaction) {
         on(canvas, "pointermove", (e)=>{
             const pe = e;
@@ -3822,7 +3870,10 @@ function mountCityscape(opts = {}) {
         });
     }
     resize();
-    if (opts.autoStart ?? true) engine.start();
+    if (opts.autoStart ?? true) {
+        intendRunning = true;
+        syncRunning();
+    }
     return {
         scene,
         engine,
@@ -3845,8 +3896,14 @@ function mountCityscape(opts = {}) {
             return ()=>configListeners.delete(fn);
         },
         permalink,
-        start: ()=>engine.start(),
-        stop: ()=>engine.stop(),
+        start: ()=>{
+            intendRunning = true;
+            syncRunning();
+        },
+        stop: ()=>{
+            intendRunning = false;
+            syncRunning();
+        },
         destroy () {
             engine.stop();
             for (const c of cleanups)c();
@@ -6962,15 +7019,18 @@ function mountNaturescape(opts = {}) {
         cleanups.push(()=>target.removeEventListener(type, fn, options));
     };
     on(globalThis, "resize", ()=>resize());
-    let wasRunning = false;
-    on(document, "visibilitychange", ()=>{
-        if (document.hidden) {
-            wasRunning = engine.running;
-            engine.stop();
-        } else if (wasRunning) {
-            engine.start();
-        }
-    });
+    const pauseWhenUnfocused = opts.pauseWhenUnfocused ?? false;
+    let intendRunning = false;
+    const syncRunning = ()=>{
+        const shouldRun = intendRunning && !document.hidden && (!pauseWhenUnfocused || document.hasFocus());
+        if (shouldRun) engine.start();
+        else engine.stop();
+    };
+    on(document, "visibilitychange", syncRunning);
+    if (pauseWhenUnfocused) {
+        on(globalThis, "focus", syncRunning);
+        on(globalThis, "blur", syncRunning);
+    }
     if (interaction) {
         on(canvas, "pointermove", (e)=>{
             const pe = e;
@@ -6998,7 +7058,10 @@ function mountNaturescape(opts = {}) {
         });
     }
     resize();
-    if (opts.autoStart ?? true) engine.start();
+    if (opts.autoStart ?? true) {
+        intendRunning = true;
+        syncRunning();
+    }
     return {
         scene,
         engine,
@@ -7021,8 +7084,14 @@ function mountNaturescape(opts = {}) {
             return ()=>configListeners.delete(fn);
         },
         permalink,
-        start: ()=>engine.start(),
-        stop: ()=>engine.stop(),
+        start: ()=>{
+            intendRunning = true;
+            syncRunning();
+        },
+        stop: ()=>{
+            intendRunning = false;
+            syncRunning();
+        },
         destroy () {
             engine.stop();
             for (const c of cleanups)c();

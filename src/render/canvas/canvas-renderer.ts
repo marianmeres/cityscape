@@ -22,7 +22,13 @@ export class CanvasRenderer implements Renderer {
 	#height = 0;
 	/** Frame vignette strength (0 = off). Set by the runtime from the `vignette` config knob. */
 	#vignette = 0;
-	#grainPattern: CanvasPattern | null = null;
+	/**
+	 * The composited vignette+grain post-pass, baked once at backing-store size. Its output is a
+	 * pure function of `(width, height, vignette)`, so it is blitted with a single `drawImage`
+	 * each frame and only rebuilt when that signature changes (resize / vignette change).
+	 */
+	#postCanvas: HTMLCanvasElement | null = null;
+	#postSig = "";
 
 	constructor(canvas: HTMLCanvasElement) {
 		const ctx = canvas.getContext("2d");
@@ -65,38 +71,65 @@ export class CanvasRenderer implements Renderer {
 		this.#applyPost(ctx);
 	}
 
-	/** Vignette + faint grain, painted in device pixels over the finished frame. */
+	/**
+	 * Vignette + faint grain, painted in device pixels over the finished frame. The pass is a pure
+	 * function of `(width, height, vignette)`, so it is baked into an offscreen once and blitted with
+	 * a single `drawImage` each frame — replacing two full-screen fills + a per-frame gradient alloc.
+	 */
 	#applyPost(ctx: CanvasRenderingContext2D): void {
 		const vig = this.#vignette;
 		if (vig <= 0) return;
 		const w = this.#canvas.width;
 		const h = this.#canvas.height;
+		const sig = `${w}x${h}@${vig}`;
+		if (sig !== this.#postSig) {
+			this.#postCanvas = bakePost(w, h, vig);
+			this.#postSig = sig;
+		}
+		const post = this.#postCanvas;
+		if (!post) return;
 		ctx.save();
 		ctx.setTransform(1, 0, 0, 1, 0, 0); // device pixels; ignore the camera offset
-		const cx = w / 2;
-		const cy = h / 2;
-		const g = ctx.createRadialGradient(
-			cx,
-			cy,
-			Math.min(w, h) * 0.4,
-			cx,
-			cy,
-			Math.hypot(w, h) * 0.6,
-		);
-		g.addColorStop(0, "rgba(0,0,0,0)");
-		g.addColorStop(1, `rgba(0,0,0,${(vig * 0.9).toFixed(3)})`);
-		ctx.fillStyle = g;
-		ctx.fillRect(0, 0, w, h);
-		// A barely-there grain breaks up the smooth sky/water gradients (scales with the knob).
-		const grain = this.#grainPattern ?? (this.#grainPattern = buildGrain(ctx));
-		if (grain) {
-			ctx.globalAlpha = vig * 0.06;
-			ctx.fillStyle = grain;
-			ctx.fillRect(0, 0, w, h);
-			ctx.globalAlpha = 1;
-		}
+		ctx.drawImage(post, 0, 0); // one blit reproduces the two source-over fills byte-for-byte
 		ctx.restore();
 	}
+}
+
+/**
+ * Bake the vignette gradient and grain fill into a transparent offscreen at backing-store size, in
+ * the same order/alpha as the live pass. Because source-over is associative, blitting this over the
+ * frame is pixel-identical to running the two fills against the frame directly. Returns `null` if a
+ * 2D context can't be had (the caller then skips the pass).
+ */
+function bakePost(w: number, h: number, vig: number): HTMLCanvasElement | null {
+	const off = document.createElement("canvas");
+	off.width = w;
+	off.height = h;
+	const octx = off.getContext("2d");
+	if (!octx) return null;
+	const cx = w / 2;
+	const cy = h / 2;
+	const g = octx.createRadialGradient(
+		cx,
+		cy,
+		Math.min(w, h) * 0.4,
+		cx,
+		cy,
+		Math.hypot(w, h) * 0.6,
+	);
+	g.addColorStop(0, "rgba(0,0,0,0)");
+	g.addColorStop(1, `rgba(0,0,0,${(vig * 0.9).toFixed(3)})`);
+	octx.fillStyle = g;
+	octx.fillRect(0, 0, w, h);
+	// A barely-there grain breaks up the smooth sky/water gradients (scales with the knob).
+	const grain = buildGrain(octx);
+	if (grain) {
+		octx.globalAlpha = vig * 0.06;
+		octx.fillStyle = grain;
+		octx.fillRect(0, 0, w, h);
+		octx.globalAlpha = 1;
+	}
+	return off;
 }
 
 /** A small tiling noise pattern for film grain. Renderer-local, so `Math.random` is fine here. */

@@ -48,6 +48,13 @@ export interface MountOptions {
 	interaction?: boolean;
 	/** Cap the device pixel ratio (default `2`) to bound cost on hi-dpi displays. */
 	maxDpr?: number;
+	/**
+	 * Also pause the loop when the window loses focus while still visible (another window on top, a
+	 * second monitor), not just when the tab is hidden (default `false`). A hidden tab always pauses.
+	 * Off by default because an ambient scene is often *meant* to keep drifting in a background
+	 * window; enable it to stop all work whenever the window isn't focused.
+	 */
+	pauseWhenUnfocused?: boolean;
 }
 
 /** The live handle returned by {@link mountCityscape}. */
@@ -231,16 +238,28 @@ export function mountCityscape(opts: MountOptions = {}): CityscapeHandle {
 
 	on(globalThis, "resize", () => resize());
 
-	// Pause on hidden tab (and resume).
-	let wasRunning = false;
-	on(document, "visibilitychange", () => {
-		if (document.hidden) {
-			wasRunning = engine.running;
-			engine.stop();
-		} else if (wasRunning) {
-			engine.start();
-		}
-	});
+	// ── Auto-pause gating ───────────────────────────────────────────────
+	// Run the loop only while the page is visible and — when `pauseWhenUnfocused` is set — the
+	// window is focused. `intendRunning` records whether the host wants it running at all
+	// (autoStart/start/stop), so an auto-pause never resumes a loop the host deliberately stopped,
+	// and the two conditions compose through one idempotent resync instead of fighting over start/stop.
+	const pauseWhenUnfocused = opts.pauseWhenUnfocused ?? false;
+	let intendRunning = false;
+	const syncRunning = (): void => {
+		const shouldRun = intendRunning && !document.hidden &&
+			(!pauseWhenUnfocused || document.hasFocus());
+		if (shouldRun) engine.start();
+		else engine.stop();
+	};
+
+	on(document, "visibilitychange", syncRunning);
+	// A visible-but-unfocused window keeps rAF firing at full rate — `visibilitychange` never covers
+	// it — so only wire focus/blur when the host opts in. `document.hasFocus()` (checked in
+	// syncRunning) is the reliable test; the events are just the trigger.
+	if (pauseWhenUnfocused) {
+		on(globalThis, "focus", syncRunning);
+		on(globalThis, "blur", syncRunning);
+	}
 
 	if (interaction) {
 		on(canvas, "pointermove", (e) => {
@@ -266,7 +285,10 @@ export function mountCityscape(opts: MountOptions = {}): CityscapeHandle {
 	}
 
 	resize();
-	if (opts.autoStart ?? true) engine.start();
+	if (opts.autoStart ?? true) {
+		intendRunning = true;
+		syncRunning();
+	}
 
 	return {
 		scene,
@@ -290,8 +312,14 @@ export function mountCityscape(opts: MountOptions = {}): CityscapeHandle {
 			return () => configListeners.delete(fn);
 		},
 		permalink,
-		start: () => engine.start(),
-		stop: () => engine.stop(),
+		start: () => {
+			intendRunning = true;
+			syncRunning();
+		},
+		stop: () => {
+			intendRunning = false;
+			syncRunning();
+		},
 		destroy() {
 			engine.stop();
 			for (const c of cleanups) c();

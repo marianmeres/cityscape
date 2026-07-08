@@ -35,6 +35,16 @@ export interface EngineOptions {
 	maxStepsPerFrame?: number;
 	/** Clamp for a single frame's measured delta, ms (default 250). */
 	maxFrameDeltaMs?: number;
+	/**
+	 * Optional cap on the *render* rate. The fixed-step `step` still runs every scheduled frame
+	 * (simulation stays real-time); only `render` is throttled — skipped when too little injected
+	 * time has elapsed since the last paint. Default `undefined` = render every frame (unchanged).
+	 *
+	 * Useful on high-refresh (120 Hz+) panels for always-animating scenes where 60 fps is plenty:
+	 * halving the paint work with no perceptible loss. This caps the *maximum* rate only — pausing
+	 * an idle scene entirely is domain-specific and stays app-side (`stop()`, or gate in `render`).
+	 */
+	maxFps?: number;
 }
 
 /** A start/stop/pause frame loop. */
@@ -46,11 +56,23 @@ export class Engine {
 	#last: number | null = null;
 	#cancel: CancelFrame | null = null;
 	#maxFrameDelta: number;
+	/**
+	 * Minimum injected-time gap between paints, ms (0 = uncapped). Derived with a 0.8 margin below
+	 * one target-rate frame *on purpose*: at an exact `1000/maxFps` gap a true-`maxFps` panel's
+	 * frames land right on the threshold and beat-skip to half the intended rate. The margin lets
+	 * every on-cadence frame through while still dropping every other frame of a 2× panel.
+	 */
+	#minRenderMs: number;
+	/** Injected time accumulated since the last render; gates the `maxFps` cap. */
+	#sinceRender = 0;
 
 	constructor(opts: EngineOptions) {
 		this.#opts = opts;
 		this.stepper = new FixedStepper(opts.fixedStepMs, opts.maxStepsPerFrame ?? 5);
 		this.#maxFrameDelta = opts.maxFrameDeltaMs ?? 250;
+		this.#minRenderMs = opts.maxFps && opts.maxFps > 0
+			? (1000 / opts.maxFps) * 0.8
+			: 0;
 	}
 
 	/** Whether the loop is currently scheduling frames. */
@@ -63,6 +85,7 @@ export class Engine {
 		if (this.#running) return;
 		this.#running = true;
 		this.#last = null;
+		this.#sinceRender = 0;
 		this.#schedule();
 	}
 
@@ -90,6 +113,7 @@ export class Engine {
 
 	#frame = (time: number): void => {
 		if (!this.#running) return;
+		const first = this.#last == null;
 		if (this.#last == null) this.#last = time;
 		const raw = time - this.#last;
 		this.#last = time;
@@ -100,13 +124,21 @@ export class Engine {
 		// Normal frames fall through to the fixed-step advance.
 		if (raw > this.#maxFrameDelta) {
 			const { alpha } = this.stepper.advance(0, this.#opts.step);
+			// A recovery repaint after a background gap — always paint, ignoring the fps cap.
+			this.#sinceRender = 0;
 			this.#opts.render(alpha);
 			this.#schedule();
 			return;
 		}
 		const delta = clamp(raw, 0, this.#maxFrameDelta);
 		const { alpha } = this.stepper.advance(delta, this.#opts.step);
-		this.#opts.render(alpha);
+		// Simulation advanced above every frame; the render may be throttled by `maxFps`. Always
+		// paint the first frame and whenever uncapped; otherwise only once the min gap has elapsed.
+		this.#sinceRender += delta;
+		if (first || this.#minRenderMs === 0 || this.#sinceRender >= this.#minRenderMs) {
+			this.#sinceRender = 0;
+			this.#opts.render(alpha);
+		}
 		this.#schedule();
 	};
 }
